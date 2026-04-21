@@ -12,7 +12,7 @@ user = get_user()
 
 WIN_SCORE = 5
 
-# ---------------- STATE ----------------
+# ---------------- INIT STATE ----------------
 if "ball" not in st.session_state:
     st.session_state.ball = [200, 100]
     st.session_state.vx = 3
@@ -23,10 +23,13 @@ if "ball" not in st.session_state:
     st.session_state.score_ai = 0
     st.session_state.game_over = False
     st.session_state.running = False
+
+# 🔥 FIX SPEED ERROR
+if "speed" not in st.session_state:
     st.session_state.speed = 0.05
 
 
-# ---------------- CONTROLES ----------------
+# ---------------- CONTROLS ----------------
 col1, col2, col3 = st.columns(3)
 
 with col1:
@@ -38,7 +41,9 @@ with col2:
         st.session_state.running = False
 
 with col3:
-    st.session_state.speed = st.slider("Velocidad", 0.01, 0.2, st.session_state.speed)
+    st.session_state.speed = st.slider(
+        "Velocidad", 0.01, 0.2, st.session_state.speed
+    )
 
 
 # ---------------- RESET ----------------
@@ -61,11 +66,9 @@ def step():
     vx = st.session_state.vx
     vy = st.session_state.vy
 
-    # movimiento pelota
     ball[0] += vx
     ball[1] += vy
 
-    # rebote vertical
     if ball[1] <= 0 or ball[1] >= 190:
         vy *= -1
 
@@ -81,7 +84,7 @@ def step():
     if ball[0] >= 380 and abs(ball[1] - st.session_state.ai_y) < 50:
         vx *= -1
 
-    # puntos
+    # scoring
     if ball[0] < 0:
         st.session_state.score_ai += 1
         ball = [200, 100]
@@ -98,34 +101,11 @@ def step():
 # ---------------- FIN ----------------
 if st.session_state.score_p >= WIN_SCORE:
     st.success("🏆 Has ganado")
-
-    if user:
-        supabase.table("pong_stats").insert({
-            "user_id": user.id,
-            "display_name": user.user_metadata.get("display_name"),
-            "mode": "HUMAN",
-            "result": "WIN",
-            "score_player": st.session_state.score_p,
-            "score_ai": st.session_state.score_ai
-        }).execute()
-
     st.session_state.game_over = True
     st.session_state.running = False
 
-
 if st.session_state.score_ai >= WIN_SCORE:
     st.error("💀 Gana la IA")
-
-    if user:
-        supabase.table("pong_stats").insert({
-            "user_id": user.id,
-            "display_name": user.user_metadata.get("display_name"),
-            "mode": "HUMAN",
-            "result": "LOSE",
-            "score_player": st.session_state.score_p,
-            "score_ai": st.session_state.score_ai
-        }).execute()
-
     st.session_state.game_over = True
     st.session_state.running = False
 
