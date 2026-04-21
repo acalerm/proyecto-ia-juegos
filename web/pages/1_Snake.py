@@ -2,7 +2,7 @@ import streamlit as st
 import random
 from PIL import Image, ImageDraw
 
-st.title("🐍 Snake estable")
+st.title("🐍 Snake")
 
 # ---------------- STATE ----------------
 if "snake" not in st.session_state:
