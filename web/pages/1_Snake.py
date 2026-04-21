@@ -1,10 +1,9 @@
 import streamlit as st
 import random
-import time
 from PIL import Image, ImageDraw
 
 st.set_page_config(page_title="Snake IA", layout="wide")
-st.title("🐍 Snake estable FIX")
+st.title("🐍 Snake IA (versión estable)")
 
 dirs = ["UP", "RIGHT", "DOWN", "LEFT"]
 
@@ -12,13 +11,13 @@ dirs = ["UP", "RIGHT", "DOWN", "LEFT"]
 if "snake" not in st.session_state:
     st.session_state.snake = [(9, 9)]
     st.session_state.food = (5, 5)
+    st.session_state.direction = "RIGHT"
     st.session_state.running = False
     st.session_state.score = 0
-    st.session_state.direction = "RIGHT"
 
 
 # ---------------- CONTROLS ----------------
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 with col1:
     if st.button("▶️ Start"):
@@ -28,8 +27,13 @@ with col2:
     if st.button("⏸ Stop"):
         st.session_state.running = False
 
+with col3:
+    if st.button("⏭ Step"):
+        st.session_state.running = False
+        step()
 
-# ---------------- MOVE ----------------
+
+# ---------------- LOGIC ----------------
 def step():
     snake = st.session_state.snake
     x, y = snake[0]
@@ -71,14 +75,14 @@ def draw():
     return img
 
 
-# ---------------- RENDER SIEMPRE PRIMERO ----------------
-placeholder = st.empty()
-
-placeholder.image(draw(), width=360)
+# ---------------- UI ----------------
 st.write(f"Score: {st.session_state.score}")
 
-# ---------------- LOOP CONTROLADO ----------------
+placeholder = st.empty()
+placeholder.image(draw(), width=360)
+
+
+# ---------------- AUTO LOOP SAFE ----------------
 if st.session_state.running:
-    time.sleep(0.08)
     step()
-    st.rerun()
+    placeholder.image(draw(), width=360)
