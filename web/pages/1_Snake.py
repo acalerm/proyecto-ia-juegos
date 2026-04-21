@@ -1,21 +1,20 @@
 import streamlit as st
 import random
 import time
-import numpy as np
 from PIL import Image, ImageDraw
 
 st.set_page_config(page_title="Snake IA", layout="wide")
-st.title("🐍 Snake estable")
+st.title("🐍 Snake estable FIX")
 
-dirs = ['UP', 'RIGHT', 'DOWN', 'LEFT']
+dirs = ["UP", "RIGHT", "DOWN", "LEFT"]
 
 # ---------------- INIT ----------------
 if "snake" not in st.session_state:
     st.session_state.snake = [(9, 9)]
     st.session_state.food = (5, 5)
-    st.session_state.direction = "RIGHT"
     st.session_state.running = False
     st.session_state.score = 0
+    st.session_state.direction = "RIGHT"
 
 
 # ---------------- CONTROLS ----------------
@@ -30,12 +29,8 @@ with col2:
         st.session_state.running = False
 
 
-# ---------------- LOGIC ----------------
-def reset_food():
-    return (random.randint(0, 17), random.randint(0, 17))
-
-
-def move():
+# ---------------- MOVE ----------------
+def step():
     snake = st.session_state.snake
     x, y = snake[0]
 
@@ -49,21 +44,16 @@ def move():
         x += 1
 
     new_head = (x, y)
-
     snake.insert(0, new_head)
 
-    # comida
     if new_head == st.session_state.food:
         st.session_state.score += 1
-        st.session_state.food = reset_food()
+        st.session_state.food = (random.randint(0, 17), random.randint(0, 17))
     else:
         snake.pop()
 
     # colisión
-    if (
-        x < 0 or x > 17 or y < 0 or y > 17 or
-        new_head in snake[1:]
-    ):
+    if x < 0 or x > 17 or y < 0 or y > 17 or new_head in snake[1:]:
         st.session_state.running = False
 
 
@@ -81,14 +71,14 @@ def draw():
     return img
 
 
+# ---------------- RENDER SIEMPRE PRIMERO ----------------
 placeholder = st.empty()
 
+placeholder.image(draw(), width=360)
 st.write(f"Score: {st.session_state.score}")
 
+# ---------------- LOOP CONTROLADO ----------------
 if st.session_state.running:
-    move()
-    placeholder.image(draw(), width=360)
     time.sleep(0.08)
+    step()
     st.rerun()
-else:
-    placeholder.image(draw(), width=360)
