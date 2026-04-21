@@ -1,9 +1,8 @@
 import streamlit as st
-import time
 from PIL import Image, ImageDraw
 
 st.set_page_config(page_title="Pong IA", layout="wide")
-st.title("🏓 Pong FIX estable")
+st.title("🏓 Pong IA (versión estable)")
 
 WIN = 5
 
@@ -20,7 +19,7 @@ if "ball" not in st.session_state:
 
 
 # ---------------- CONTROLS ----------------
-col1, col2 = st.columns(2)
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
     if st.button("▶️ Start"):
@@ -29,10 +28,6 @@ with col1:
 with col2:
     if st.button("⏸ Stop"):
         st.session_state.running = False
-
-
-# ---------------- PLAYER MOVE ----------------
-col3, col4 = st.columns(2)
 
 with col3:
     if st.button("⬆️"):
@@ -48,7 +43,8 @@ st.session_state.player = max(0, min(150, st.session_state.player))
 # ---------------- STEP ----------------
 def step():
     x, y = st.session_state.ball
-    vx, vy = st.session_state.vx, st.session_state.vy
+    vx = st.session_state.vx
+    vy = st.session_state.vy
 
     x += vx
     y += vy
@@ -56,7 +52,7 @@ def step():
     if y <= 0 or y >= 190:
         vy *= -1
 
-    # IA
+    # IA simple
     if y > st.session_state.ai:
         st.session_state.ai += 3
     else:
@@ -64,17 +60,17 @@ def step():
 
     st.session_state.ai = max(0, min(150, st.session_state.ai))
 
-    # player collision FIX
+    # colisión jugador
     if x <= 20 and st.session_state.player <= y <= st.session_state.player + 50:
         vx *= -1
         x = 20
 
-    # ai collision FIX
+    # colisión IA
     if x >= 380 and st.session_state.ai <= y <= st.session_state.ai + 50:
         vx *= -1
         x = 380
 
-    # score
+    # scoring
     if x < 0:
         st.session_state.s2 += 1
         x, y = 200, 100
@@ -88,7 +84,7 @@ def step():
     st.session_state.vy = vy
 
 
-# ---------------- DRAW (SIEMPRE PRIMERO) ----------------
+# ---------------- DRAW ----------------
 def draw():
     img = Image.new("RGB", (400, 200), (0, 0, 0))
     d = ImageDraw.Draw(img)
@@ -103,13 +99,14 @@ def draw():
     return img
 
 
-placeholder = st.empty()
-
-placeholder.image(draw(), width=400)
+# ---------------- UI ----------------
 st.write(f"{st.session_state.s1} - {st.session_state.s2}")
 
-# ---------------- LOOP ----------------
+placeholder = st.empty()
+placeholder.image(draw(), width=400)
+
+
+# ---------------- SAFE LOOP ----------------
 if st.session_state.running:
-    time.sleep(0.03)
     step()
-    st.rerun()
+    placeholder.image(draw(), width=400)
