@@ -2,7 +2,7 @@ import streamlit as st
 from PIL import Image, ImageDraw
 
 st.set_page_config(page_title="Pong IA", layout="wide")
-st.title("🏓 Pong IA (versión estable)")
+st.title("🏓 Pong")
 
 WIN = 5
 
