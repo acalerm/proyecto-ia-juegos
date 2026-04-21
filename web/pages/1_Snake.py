@@ -1,88 +1,103 @@
 import streamlit as st
 import random
+import time
 from PIL import Image, ImageDraw
 
-st.set_page_config(page_title="Snake IA", layout="wide")
-st.title("🐍 Snake IA (versión estable)")
+from utils.session import get_user
 
-dirs = ["UP", "RIGHT", "DOWN", "LEFT"]
+st.set_page_config(page_title="Snake IA", layout="wide")
+st.title("🐍 Snake IA")
+
+user = get_user()
 
 # ---------------- INIT ----------------
 if "snake" not in st.session_state:
     st.session_state.snake = [(9, 9)]
+
+if "food" not in st.session_state:
+    st.session_state.food = (5, 5)
+
+if "direction" not in st.session_state:
+    st.session_state.direction = "RIGHT"
+
+if "running" not in st.session_state:
+    st.session_state.running = False
+
+# ---------------- CONTROLS ----------------
+col1, col2, col3, col4 = st.columns(4)
+
+with col1:
+    if st.button("⬆️"):
+        st.session_state.direction = "UP"
+
+with col2:
+    if st.button("⬇️"):
+        st.session_state.direction = "DOWN"
+
+with col3:
+    if st.button("⬅️"):
+        st.session_state.direction = "LEFT"
+
+with col4:
+    if st.button("➡️"):
+        st.session_state.direction = "RIGHT"
+
+if st.button("▶ Start / Pause"):
+    st.session_state.running = not st.session_state.running
+
+if st.button("🔄 Reset"):
+    st.session_state.snake = [(9, 9)]
     st.session_state.food = (5, 5)
     st.session_state.direction = "RIGHT"
     st.session_state.running = False
-    st.session_state.score = 0
+    st.rerun()
 
-
-# ---------------- CONTROLS ----------------
-col1, col2, col3 = st.columns(3)
-
-with col1:
-    if st.button("▶️ Start"):
-        st.session_state.running = True
-
-with col2:
-    if st.button("⏸ Stop"):
-        st.session_state.running = False
-
-with col3:
-    if st.button("⏭ Step"):
-        st.session_state.running = False
-        step()
-
-
-# ---------------- LOGIC ----------------
+# ---------------- MOVE ----------------
 def step():
-    snake = st.session_state.snake
-    x, y = snake[0]
+    head = st.session_state.snake[0]
+    x, y = head
 
     if st.session_state.direction == "UP":
         y -= 1
-    elif st.session_state.direction == "DOWN":
+    if st.session_state.direction == "DOWN":
         y += 1
-    elif st.session_state.direction == "LEFT":
+    if st.session_state.direction == "LEFT":
         x -= 1
-    elif st.session_state.direction == "RIGHT":
+    if st.session_state.direction == "RIGHT":
         x += 1
 
     new_head = (x, y)
-    snake.insert(0, new_head)
-
-    if new_head == st.session_state.food:
-        st.session_state.score += 1
-        st.session_state.food = (random.randint(0, 17), random.randint(0, 17))
-    else:
-        snake.pop()
 
     # colisión
-    if x < 0 or x > 17 or y < 0 or y > 17 or new_head in snake[1:]:
+    if x < 0 or x > 17 or y < 0 or y > 17 or new_head in st.session_state.snake:
         st.session_state.running = False
+        return
 
+    st.session_state.snake.insert(0, new_head)
+
+    # comida
+    if new_head == st.session_state.food:
+        st.session_state.food = (random.randint(0,17), random.randint(0,17))
+    else:
+        st.session_state.snake.pop()
+
+# ---------------- RUN ----------------
+if st.session_state.running:
+    step()
+    time.sleep(0.15)
+    st.rerun()
 
 # ---------------- DRAW ----------------
 def draw():
-    img = Image.new("RGB", (360, 360), (0, 0, 0))
+    img = Image.new("RGB", (360, 360), (0,0,0))
     d = ImageDraw.Draw(img)
 
     for s in st.session_state.snake:
-        d.rectangle([s[0]*20, s[1]*20, s[0]*20+20, s[1]*20+20], fill=(0, 255, 0))
+        d.rectangle([s[0]*20, s[1]*20, s[0]*20+20, s[1]*20+20], fill=(0,255,0))
 
-    f = st.session_state.food
-    d.rectangle([f[0]*20, f[1]*20, f[0]*20+20, f[1]*20+20], fill=(255, 0, 0))
+    fx, fy = st.session_state.food
+    d.rectangle([fx*20, fy*20, fx*20+20, fy*20+20], fill=(255,0,0))
 
     return img
 
-
-# ---------------- UI ----------------
-st.write(f"Score: {st.session_state.score}")
-
-placeholder = st.empty()
-placeholder.image(draw(), width=360)
-
-
-# ---------------- AUTO LOOP SAFE ----------------
-if st.session_state.running:
-    step()
-    placeholder.image(draw(), width=360)
+st.image(draw())
