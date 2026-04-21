@@ -176,89 +176,19 @@ def draw(snake, food):
 
     return img
 
-# ---------------- ENTRENAMIENTO ----------------
-if modo == "Entrenar IA" and st.button("Entrenar"):
-
-    st.session_state.Q = {}
-    st.session_state.scores = []
-
-    progress = st.progress(0)
-    status = st.empty()
-
-    for ep in range(episodios):
-
-        snake, food, direction = reset_env()
-        state = get_state(snake, food, direction)
-        action = choose_action(state)
-
-        score = 0
-        done = False
-
-        while not done:
-            snake, direction, food, reward, done = move(snake, direction, action, food)
-
-            next_state = get_state(snake, food, direction)
-            next_action = choose_action(next_state)
-
-            update_q(state, action, reward, next_state, next_action)
-
-            state = next_state
-            action = next_action
-
-            if reward == 20:
-                score += 1
-
-        st.session_state.scores.append(score)
-
-        progress.progress((ep + 1) / episodios)
-
-        if (ep + 1) % 1000 == 0:
-            status.text(f"Episodio {ep+1}/{episodios}")
-
-    st.success("✅ Entrenamiento completado")
-
-    # ---------------- 🔥 GUARDADO OPTIMIZADO ----------------
-    if user and st.session_state.scores:
-
-        max_score = max(st.session_state.scores)
-        last_score = st.session_state.scores[-1]
-
-        supabase.table("snake_stats").insert({
-            "user_id": user.id,
-            "display_name": user.user_metadata.get("display_name"),
-            "max_score": max_score,
-            "last_score": last_score,
-            "episodes": episodios,
-            "algorithm": algoritmo
-        }).execute()
-
-# ---------------- GRAFICO ----------------
-if modo == "Ver aprendizaje":
-    if st.session_state.scores:
-
-        scores = st.session_state.scores
-        media = [np.mean(scores[max(0, i-50):i+1]) for i in range(len(scores))]
-
-        import matplotlib.pyplot as plt
-
-        fig, ax = plt.subplots()
-        ax.plot(scores, alpha=0.3, label="Score")
-        ax.plot(media, label="Media móvil")
-        ax.legend()
-
-        st.pyplot(fig)
-
-    else:
-        st.warning("⚠️ Primero entrena la IA")
-
-# ---------------- DEMO ----------------
+# ---------------- DEMO ARREGLADA ----------------
 if modo == "Ver IA jugar" and st.button("Jugar"):
 
     snake, food, direction = reset_env()
     done = False
     score = 0
 
-    while not done:
+    placeholder = st.empty()
+
+    for _ in range(1000):  # 🔥 FIX STREAMLIT
+
+        if done:
+            break
 
         state = get_state(snake, food, direction)
         action = choose_action(state)
