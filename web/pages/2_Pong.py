@@ -62,7 +62,6 @@ with col2:
 
 st.session_state.player_y = max(0, min(150, st.session_state.player_y))
 
-# ---------------- GAME OVER ----------------
 if st.session_state.game_over:
     st.warning("La partida ha terminado. Pulsa Reset para jugar otra vez.")
     st.stop()
@@ -75,11 +74,10 @@ vy = st.session_state.vy
 ball[0] += vx
 ball[1] += vy
 
-# rebote arriba/abajo
 if ball[1] <= 0 or ball[1] >= 190:
     vy *= -1
 
-# ---------------- IA SIMPLE ----------------
+# ---------------- IA ----------------
 if ball[1] > st.session_state.ai_y:
     st.session_state.ai_y += 3
 else:
@@ -88,12 +86,10 @@ else:
 st.session_state.ai_y = max(0, min(150, st.session_state.ai_y))
 
 # ---------------- COLISIONES ----------------
-# jugador
 if ball[0] <= 20:
     if abs(ball[1] - st.session_state.player_y) < 50:
         vx *= -1
 
-# IA
 if ball[0] >= 380:
     if abs(ball[1] - st.session_state.ai_y) < 50:
         vx *= -1
@@ -111,7 +107,7 @@ st.session_state.ball = ball
 st.session_state.vx = vx
 st.session_state.vy = vy
 
-# ---------------- FIN DE PARTIDA ----------------
+# ---------------- FIN ----------------
 if st.session_state.score_p >= WIN_SCORE:
 
     st.success("🏆 ¡Has ganado!")
@@ -128,7 +124,6 @@ if st.session_state.score_p >= WIN_SCORE:
 
     st.session_state.game_over = True
     st.stop()
-
 
 if st.session_state.score_ai >= WIN_SCORE:
 
@@ -147,23 +142,20 @@ if st.session_state.score_ai >= WIN_SCORE:
     st.session_state.game_over = True
     st.stop()
 
-# ---------------- RENDER ----------------
+# ---------------- RENDER FIX ----------------
 def draw():
     img = Image.new("RGB", (400, 200), (0, 0, 0))
     d = ImageDraw.Draw(img)
 
     x, y = st.session_state.ball
 
-    # pelota
     d.ellipse([x, y, x+10, y+10], fill=(255, 255, 255))
 
-    # jugador
     d.rectangle([
         10, st.session_state.player_y,
         20, st.session_state.player_y + 50
     ], fill=(0, 255, 0))
 
-    # IA
     d.rectangle([
         380, st.session_state.ai_y,
         390, st.session_state.ai_y + 50
@@ -171,9 +163,11 @@ def draw():
 
     return img
 
+screen = st.empty()
+
 st.write(f"Jugador: {st.session_state.score_p} | IA: {st.session_state.score_ai}")
 
-st.image(draw())
+screen.image(draw())
 
 time.sleep(speed)
 st.rerun()
