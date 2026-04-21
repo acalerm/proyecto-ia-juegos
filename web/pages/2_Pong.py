@@ -1,79 +1,88 @@
 import streamlit as st
 from PIL import Image, ImageDraw
 
-st.title("🏓 Pong estable")
+st.set_page_config(page_title="Pong IA", layout="wide")
+st.title("🏓 Pong IA (versión estable)")
 
-# ---------------- STATE ----------------
+WIN = 5
+
+# ---------------- INIT ----------------
 if "ball" not in st.session_state:
     st.session_state.ball = [200, 100]
     st.session_state.vx = 4
     st.session_state.vy = 3
-
-if "player_y" not in st.session_state:
-    st.session_state.player_y = 80
-
-if "ai_y" not in st.session_state:
-    st.session_state.ai_y = 80
-
-if "running" not in st.session_state:
+    st.session_state.player = 80
+    st.session_state.ai = 80
+    st.session_state.s1 = 0
+    st.session_state.s2 = 0
     st.session_state.running = False
 
+
 # ---------------- CONTROLS ----------------
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
 with col1:
-    if st.button("⬆️"):
-        st.session_state.player_y -= 15
+    if st.button("▶️ Start"):
+        st.session_state.running = True
 
 with col2:
-    if st.button("⬇️"):
-        st.session_state.player_y += 15
+    if st.button("⏸ Stop"):
+        st.session_state.running = False
 
 with col3:
-    if st.button("▶ Play / Pause"):
-        st.session_state.running = not st.session_state.running
+    if st.button("⬆️"):
+        st.session_state.player -= 15
 
-st.session_state.player_y = max(0, min(150, st.session_state.player_y))
+with col4:
+    if st.button("⬇️"):
+        st.session_state.player += 15
+
+st.session_state.player = max(0, min(150, st.session_state.player))
+
 
 # ---------------- STEP ----------------
 def step():
-    ball = st.session_state.ball
+    x, y = st.session_state.ball
     vx = st.session_state.vx
     vy = st.session_state.vy
 
-    # movimiento pelota SIEMPRE
-    ball[0] += vx
-    ball[1] += vy
+    x += vx
+    y += vy
 
-    # rebotes
-    if ball[1] <= 0 or ball[1] >= 190:
-        st.session_state.vy *= -1
+    if y <= 0 or y >= 190:
+        vy *= -1
 
-    # IA
-    if ball[1] > st.session_state.ai_y:
-        st.session_state.ai_y += 3
+    # IA simple
+    if y > st.session_state.ai:
+        st.session_state.ai += 3
     else:
-        st.session_state.ai_y -= 3
+        st.session_state.ai -= 3
 
-    st.session_state.ai_y = max(0, min(150, st.session_state.ai_y))
+    st.session_state.ai = max(0, min(150, st.session_state.ai))
 
-    # colisiones
-    if ball[0] <= 20 and abs(ball[1] - st.session_state.player_y) < 50:
-        st.session_state.vx *= -1
+    # colisión jugador
+    if x <= 20 and st.session_state.player <= y <= st.session_state.player + 50:
+        vx *= -1
+        x = 20
 
-    if ball[0] >= 380 and abs(ball[1] - st.session_state.ai_y) < 50:
-        st.session_state.vx *= -1
+    # colisión IA
+    if x >= 380 and st.session_state.ai <= y <= st.session_state.ai + 50:
+        vx *= -1
+        x = 380
 
-    # reset ball
-    if ball[0] < 0 or ball[0] > 400:
-        ball[0], ball[1] = 200, 100
+    # scoring
+    if x < 0:
+        st.session_state.s2 += 1
+        x, y = 200, 100
 
-    st.session_state.ball = ball
+    if x > 400:
+        st.session_state.s1 += 1
+        x, y = 200, 100
 
-# ---------------- AUTO LOOP CONTROLADO ----------------
-if st.session_state.running:
-    step()
-    st.rerun()
+    st.session_state.ball = [x, y]
+    st.session_state.vx = vx
+    st.session_state.vy = vy
+
 
 # ---------------- DRAW ----------------
 def draw():
@@ -82,11 +91,22 @@ def draw():
 
     x, y = st.session_state.ball
 
-    d.ellipse([x, y, x+10, y+10], fill=(255,255,255))
+    d.ellipse([x, y, x+10, y+10], fill=(255, 255, 255))
 
-    d.rectangle([10, st.session_state.player_y, 20, st.session_state.player_y+50], fill=(0,255,0))
-    d.rectangle([380, st.session_state.ai_y, 390, st.session_state.ai_y+50], fill=(255,0,0))
+    d.rectangle([10, st.session_state.player, 20, st.session_state.player+50], fill=(0, 255, 0))
+    d.rectangle([380, st.session_state.ai, 390, st.session_state.ai+50], fill=(255, 0, 0))
 
     return img
 
-st.image(draw())
+
+# ---------------- UI ----------------
+st.write(f"{st.session_state.s1} - {st.session_state.s2}")
+
+placeholder = st.empty()
+placeholder.image(draw(), width=400)
+
+
+# ---------------- SAFE LOOP ----------------
+if st.session_state.running:
+    step()
+    placeholder.image(draw(), width=400)
