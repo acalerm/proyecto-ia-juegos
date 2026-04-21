@@ -12,11 +12,10 @@ st.title("🐍 Snake IA Autoplay (estable)")
 
 user = get_user()
 
-# ---------------- CONFIG ----------------
 dirs = ['UP', 'RIGHT', 'DOWN', 'LEFT']
 placeholder = st.empty()
 
-# ---------------- STATE ----------------
+# ---------------- INIT STATE ----------------
 if "Q" not in st.session_state:
     st.session_state.Q = {}
 
@@ -48,7 +47,12 @@ with col2:
 
 # ---------------- STEP ----------------
 def step():
-    state = get_state(st.session_state.snake, st.session_state.food, st.session_state.direction)
+    state = get_state(
+        st.session_state.snake,
+        st.session_state.food,
+        st.session_state.direction
+    )
+
     action = choose_action(state)
 
     snake, direction, food, reward, done = move(
@@ -68,7 +72,6 @@ def step():
     if done:
         st.session_state.running = False
         st.session_state.snake_running = False
-        st.success(f"Game Over - Score: {st.session_state.score}")
 
 
 # ---------------- DRAW ----------------
@@ -87,8 +90,11 @@ def draw(snake, food):
 st.write(f"Score: {st.session_state.score}")
 
 # ---------------- LOOP CONTROLADO ----------------
-if st.session_state.running and st.session_state.snake_running:
-
+if (
+    st.session_state.running and
+    st.session_state.snake_running and
+    st.session_state.snake is not None
+):
     step()
 
     placeholder.image(
