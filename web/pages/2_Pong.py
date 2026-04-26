@@ -1,8 +1,13 @@
 import streamlit as st
 from PIL import Image, ImageDraw
 
+from utils.supabase_client import supabase
+from utils.session import get_user
+
 st.set_page_config(page_title="Pong IA", layout="wide")
 st.title("🏓 Pong")
+
+user = get_user()
 
 WIN = 5
 
@@ -18,8 +23,20 @@ if "ball" not in st.session_state:
     st.session_state.running = False
 
 
+# ---------------- GUARDAR PARTIDA ----------------
+def guardar(resultado):
+    if user:
+        supabase.table("pong_stats").insert({
+            "user_id": user.id,
+            "display_name": user.user_metadata.get("display_name"),
+            "result": resultado,
+            "score_player": st.session_state.s1,
+            "score_ai": st.session_state.s2
+        }).execute()
+
+
 # ---------------- CONTROLS ----------------
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
     if st.button("▶️ Start"):
@@ -37,6 +54,19 @@ with col4:
     if st.button("⬇️"):
         st.session_state.player += 15
 
+with col5:
+    if st.button("🔄 Reset"):
+        guardar("LOSE")  # cuenta como derrota
+
+        st.session_state.ball = [200, 100]
+        st.session_state.vx = 4
+        st.session_state.vy = 3
+        st.session_state.player = 80
+        st.session_state.ai = 80
+        st.session_state.s1 = 0
+        st.session_state.s2 = 0
+        st.session_state.running = False
+
 st.session_state.player = max(0, min(150, st.session_state.player))
 
 
@@ -52,7 +82,7 @@ def step():
     if y <= 0 or y >= 190:
         vy *= -1
 
-    # IA simple
+    # IA
     if y > st.session_state.ai:
         st.session_state.ai += 3
     else:
@@ -106,7 +136,19 @@ placeholder = st.empty()
 placeholder.image(draw(), width=400)
 
 
-# ---------------- SAFE LOOP ----------------
+# ---------------- GAME LOOP ----------------
 if st.session_state.running:
+
     step()
     placeholder.image(draw(), width=400)
+
+    # 🏆 FIN PARTIDA
+    if st.session_state.s1 >= WIN:
+        guardar("WIN")
+        st.success("🏆 Has ganado")
+        st.session_state.running = False
+
+    elif st.session_state.s2 >= WIN:
+        guardar("LOSE")
+        st.error("💀 Has perdido")
+        st.session_state.running = False
