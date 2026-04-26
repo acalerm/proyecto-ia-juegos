@@ -29,11 +29,17 @@ if "score" not in st.session_state:
 # ---------------- GUARDAR ----------------
 def guardar():
     if user:
-        supabase.table("snake_stats").insert({
-            "user_id": user.id,
-            "display_name": user.user_metadata.get("display_name"),
-            "score": st.session_state.score
-        }).execute()
+        try:
+            supabase.table("snake_stats").insert({
+                "user_id": user.id,
+                "display_name": user.user_metadata.get("display_name"),
+                "max_score": st.session_state.score,
+                "last_score": st.session_state.score,
+                "episodes": 1,
+                "algorithm": "manual"
+            }).execute()
+        except Exception as e:
+            st.error(f"Error guardando: {e}")
 
 
 # ---------------- CONTROLS ----------------
