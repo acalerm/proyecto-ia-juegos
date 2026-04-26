@@ -1,19 +1,30 @@
 import streamlit as st
+import pandas as pd
 from utils.supabase_client import supabase
+from utils.session import get_user
 
 st.set_page_config(page_title="Estadísticas", layout="wide")
 st.title("📊 Estadísticas del sistema")
 
+user = get_user()
+
+# ⚠️ si no hay usuario, no mostramos stats
+if not user:
+    st.warning("Inicia sesión para ver tus estadísticas 👤")
+    st.stop()
+
 # ---------------- SNAKE ----------------
 st.header("🐍 Snake Stats")
 
-snake_data = supabase.table("snake_stats").select("*").execute().data
+snake_data = supabase.table("snake_stats") \
+    .select("*") \
+    .eq("user_id", user.id) \
+    .execute().data
 
 if snake_data:
 
     total_snake = len(snake_data)
 
-    # ⚠️ sin tocar lógica, solo protección básica
     valid_max = [
         r["max_score"] for r in snake_data
         if r.get("max_score") is not None
@@ -36,7 +47,10 @@ else:
 # ---------------- CHESS ----------------
 st.header("♟ Chess Stats")
 
-chess_data = supabase.table("chess_stats").select("*").execute().data
+chess_data = supabase.table("chess_stats") \
+    .select("*") \
+    .eq("user_id", user.id) \
+    .execute().data
 
 if chess_data:
 
@@ -58,7 +72,10 @@ else:
 # ---------------- PONG ----------------
 st.header("🏓 Pong Stats")
 
-pong_data = supabase.table("pong_stats").select("*").execute().data
+pong_data = supabase.table("pong_stats") \
+    .select("*") \
+    .eq("user_id", user.id) \
+    .execute().data
 
 if pong_data:
 
@@ -95,21 +112,25 @@ else:
     st.info("No hay datos de Pong todavía")
 
 # ---------------- DATOS BRUTOS ----------------
-st.header("📦 Datos en bruto")
+st.header("📦 Tus datos")
 
 col1, col2, col3 = st.columns(3)
+
+def clean_df(data):
+    df = pd.DataFrame(data)
+    return df.drop(columns=["id", "user_id"], errors="ignore")
 
 with col1:
     st.subheader("Snake")
     if snake_data:
-        st.dataframe(snake_data)
+        st.dataframe(clean_df(snake_data))
 
 with col2:
     st.subheader("Chess")
     if chess_data:
-        st.dataframe(chess_data)
+        st.dataframe(clean_df(chess_data))
 
 with col3:
     st.subheader("Pong")
     if pong_data:
-        st.dataframe(pong_data)
+        st.dataframe(clean_df(pong_data))
