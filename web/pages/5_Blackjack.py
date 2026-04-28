@@ -1,22 +1,9 @@
 import streamlit as st
 import random
-from supabase import create_client
 from streamlit.components.v1 import html
 
 # =====================================================
-# 🔗 SUPABASE
-# =====================================================
-
-SUPABASE_URL = st.secrets["SUPABASE_URL"]
-SUPABASE_KEY = st.secrets["SUPABASE_KEY"]
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-def get_user():
-    return st.session_state.get("user", None)
-
-
-# =====================================================
-# 🎮 LÓGICA DEL JUEGO
+# 🎮 LÓGICA
 # =====================================================
 
 def draw_card():
@@ -40,9 +27,8 @@ def dealer_play(hand):
         hand.append(draw_card())
     return hand
 
-
 # =====================================================
-# 🤖 IA MEJORADA (ESTRATEGIA)
+# 🤖 IA
 # =====================================================
 
 def ia_smart(hand, dealer_card):
@@ -50,19 +36,13 @@ def ia_smart(hand, dealer_card):
 
     if score >= 17:
         return "STAND"
-
     if score <= 11:
         return "HIT"
-
     if 12 <= score <= 16:
-        if dealer_card >= 7:
-            return "HIT"
-        else:
-            return "STAND"
-
+        return "HIT" if dealer_card >= 7 else "STAND"
 
 # =====================================================
-# 🎨 UI CASINO
+# 🎨 UI
 # =====================================================
 
 def card_ui(card):
@@ -77,102 +57,53 @@ def card_ui(card):
         value = str(card)
 
     return f"""
-    <div style="
-        width:55px;
-        height:80px;
-        border-radius:10px;
-        background:white;
-        display:flex;
-        justify-content:center;
-        align-items:center;
-        font-size:18px;
-        font-weight:bold;
-        border:2px solid black;
-        margin:4px;
-        box-shadow:2px 2px 5px rgba(0,0,0,0.2);
-    ">
-        {value}{suit}
+    <div style="width:55px;height:80px;border-radius:10px;
+    background:white;display:flex;justify-content:center;
+    align-items:center;font-size:18px;font-weight:bold;
+    border:2px solid black;margin:4px;">
+    {value}{suit}
     </div>
     """
 
 def render_hand(hand):
-    html_code = "<div style='display:flex; justify-content:center;'>"
+    if not hand:
+        return "<div>Sin cartas</div>"
+
+    html_code = "<div style='display:flex;justify-content:center;'>"
     for c in hand:
         html_code += card_ui(c)
     html_code += "</div>"
     return html_code
 
-def render_dealer(hand, reveal=False):
-    if not reveal:
-        return render_hand([hand[0]]) + "<div style='text-align:center;'>🂠 carta oculta</div>"
-    return render_hand(hand)
-
-
 # =====================================================
-# 💾 GUARDAR PARTIDA
+# 📦 ESTADO ROBUSTO
 # =====================================================
 
-def save_game(user, result, player_score, dealer_score, mode):
-    if not user:
-        return
-
-    supabase.table("blackjack_stats").insert({
-        "user_id": user.id,
-        "username": user.email,
-        "result": result,
-        "player_score": player_score,
-        "dealer_score": dealer_score,
-        "mode": mode
-    }).execute()
-
-
-# =====================================================
-# 📦 ESTADO
-# =====================================================
-
-if "player" not in st.session_state:
+if "player" not in st.session_state or st.session_state.player is None:
     st.session_state.player = draw_hand()
+
+if "dealer" not in st.session_state or st.session_state.dealer is None:
     st.session_state.dealer = draw_hand()
+
+if "done" not in st.session_state:
     st.session_state.done = False
+
+if "result" not in st.session_state:
     st.session_state.result = None
-    st.session_state.mode = "Jugador"
-    st.session_state.saved = False
-
-# 📊 IA stats sesión
-if "ia_stats" not in st.session_state:
-    st.session_state.ia_stats = {
-        "games": 0,
-        "wins": 0,
-        "losses": 0
-    }
-
 
 # =====================================================
 # 🎰 UI
 # =====================================================
 
-st.set_page_config(page_title="Blackjack IA PRO", layout="centered")
+st.title("🃏 Blackjack")
 
-st.title("🃏 Blackjack IA PRO")
-
-mode = st.selectbox("Modo", ["Jugador", "IA", "Recomendación"])
-st.session_state.mode = mode
-
-user = get_user()
-
-if not user:
-    st.info("🔒 Inicia sesión para guardar estadísticas")
-
-st.markdown("---")
-
+mode = st.selectbox("Modo", ["Jugador", "IA"])
 
 # =====================================================
-# 🤖 MODO IA AUTOMÁTICO
+# 🤖 IA AUTO
 # =====================================================
 
 if mode == "IA" and not st.session_state.done:
-
-    st.info("🤖 IA jugando (estrategia básica)...")
 
     player = draw_hand()
     dealer = draw_hand()
@@ -210,37 +141,31 @@ if mode == "IA" and not st.session_state.done:
     st.session_state.result = result
     st.session_state.done = True
 
-    # 📊 stats IA
-    st.session_state.ia_stats["games"] += 1
-    if "Ganas" in result:
-        st.session_state.ia_stats["wins"] += 1
-    elif "Pierdes" in result:
-        st.session_state.ia_stats["losses"] += 1
-
+    st.rerun()  # 🔥 CLAVE
 
 # =====================================================
 # 🧑 JUGADOR
 # =====================================================
 
-st.markdown("## 🧑 Jugador")
+st.subheader("🧑 Jugador")
 html(render_hand(st.session_state.player), height=120)
-st.write("🎯 Puntuación:", sum_hand(st.session_state.player))
-
+st.write("Puntuación:", sum_hand(st.session_state.player))
 
 # =====================================================
 # 🏦 DEALER
 # =====================================================
 
-st.markdown("## 🏦 Dealer")
+st.subheader("🏦 Dealer")
 
 if st.session_state.done:
-    html(render_dealer(st.session_state.dealer, reveal=True), height=120)
+    html(render_hand(st.session_state.dealer), height=120)
+    st.write("Puntuación:", sum_hand(st.session_state.dealer))
 else:
-    html(render_dealer(st.session_state.dealer, reveal=False), height=120)
-
+    html(render_hand([st.session_state.dealer[0]]), height=120)
+    st.write("Carta visible:", st.session_state.dealer[0])
 
 # =====================================================
-# 🎮 BOTONES
+# 🎮 BOTONES (FIX REAL)
 # =====================================================
 
 game_over = st.session_state.done or mode == "IA"
@@ -250,9 +175,12 @@ col1, col2, col3 = st.columns(3)
 with col1:
     if st.button("🎴 Pedir carta", disabled=game_over):
         st.session_state.player.append(draw_card())
+
         if is_bust(st.session_state.player):
             st.session_state.done = True
             st.session_state.result = "💀 Pierdes"
+
+        st.rerun()  # 🔥 SOLUCIÓN AL BUG
 
 with col2:
     if st.button("🛑 Plantarse", disabled=game_over):
@@ -271,21 +199,23 @@ with col2:
         else:
             st.session_state.result = "🤝 Empate"
 
+        st.rerun()  # 🔥 CLAVE
+
 with col3:
     if st.button("🔄 Nueva partida"):
         st.session_state.player = draw_hand()
         st.session_state.dealer = draw_hand()
         st.session_state.done = False
         st.session_state.result = None
-        st.session_state.saved = False
 
+        st.rerun()
 
 # =====================================================
-# 🧾 RESULTADO + GUARDADO
+# 🧾 RESULTADO
 # =====================================================
 
 if st.session_state.done:
-    st.markdown("## 🧾 Resultado")
+    st.subheader("Resultado")
 
     if "Ganas" in str(st.session_state.result):
         st.success(st.session_state.result)
@@ -293,33 +223,3 @@ if st.session_state.done:
         st.error(st.session_state.result)
     else:
         st.info(st.session_state.result)
-
-    if not st.session_state.saved:
-        save_game(
-            user=user,
-            result=st.session_state.result,
-            player_score=sum_hand(st.session_state.player),
-            dealer_score=sum_hand(st.session_state.dealer),
-            mode=st.session_state.mode
-        )
-        st.session_state.saved = True
-
-
-# =====================================================
-# 📊 STATS IA EN PANTALLA
-# =====================================================
-
-if mode == "IA":
-    stats = st.session_state.ia_stats
-
-    st.markdown("### 📊 Rendimiento IA (sesión)")
-
-    if stats["games"] > 0:
-        winrate = (stats["wins"] / stats["games"]) * 100
-    else:
-        winrate = 0
-
-    st.write(f"Partidas: {stats['games']}")
-    st.write(f"Victorias: {stats['wins']}")
-    st.write(f"Derrotas: {stats['losses']}")
-    st.write(f"Winrate: {winrate:.2f}%")
