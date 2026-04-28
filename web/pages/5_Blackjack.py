@@ -11,7 +11,7 @@ from utils.session import get_user
 user = get_user()
 
 # =====================================================
-# 🎮 LÓGICA DEL JUEGO
+# 🎮 LÓGICA
 # =====================================================
 
 def draw_card():
@@ -50,7 +50,7 @@ def ia_smart(hand, dealer_card):
         return "HIT" if dealer_card >= 7 else "STAND"
 
 # =====================================================
-# 🎨 CARTAS UI
+# 🎨 CARTAS
 # =====================================================
 
 def card_ui(card):
@@ -81,8 +81,15 @@ def card_ui(card):
     </div>
     """
 
+# =====================================================
+# 🛡️ FIX RENDER HAND (IMPORTANTE)
+# =====================================================
+
 def render_hand(hand):
-    if not hand:
+    if not isinstance(hand, list):
+        return "<div>Sin cartas</div>"
+
+    if len(hand) == 0:
         return "<div>Sin cartas</div>"
 
     html_code = "<div style='display:flex;justify-content:center;'>"
@@ -92,7 +99,7 @@ def render_hand(hand):
     return html_code
 
 # =====================================================
-# 💾 GUARDAR EN SUPABASE (FIX display_name)
+# 💾 SUPABASE
 # =====================================================
 
 def save_game(user, result, player_score, dealer_score, mode):
@@ -117,15 +124,15 @@ def save_game(user, result, player_score, dealer_score, mode):
     }).execute()
 
 # =====================================================
-# 📦 ESTADO
+# 📦 ESTADO SEGURO (FIX CLAVE)
 # =====================================================
 
-st.set_page_config(page_title="Blackjack IA PRO", layout="centered")
+st.set_page_config(page_title="Blackjack", layout="centered")
 
-if "player" not in st.session_state:
+if "player" not in st.session_state or not isinstance(st.session_state.player, list):
     st.session_state.player = draw_hand()
 
-if "dealer" not in st.session_state:
+if "dealer" not in st.session_state or not isinstance(st.session_state.dealer, list):
     st.session_state.dealer = draw_hand()
 
 if "done" not in st.session_state:
@@ -146,7 +153,7 @@ st.title("🃏 Blackjack IA PRO")
 mode = st.selectbox("Modo", ["Jugador", "IA"])
 
 # =====================================================
-# 🤖 MODO IA
+# 🤖 IA MODE
 # =====================================================
 
 if mode == "IA" and not st.session_state.done:
@@ -272,7 +279,6 @@ if st.session_state.done:
     else:
         st.info(st.session_state.result)
 
-    # 💾 SOLO UNA VEZ
     if not st.session_state.saved and user:
 
         save_game(
