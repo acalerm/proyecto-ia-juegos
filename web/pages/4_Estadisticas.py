@@ -13,7 +13,10 @@ if not user:
     st.warning("Inicia sesión para ver tus estadísticas 👤")
     st.stop()
 
-# ---------------- SNAKE ----------------
+# =====================================================
+# 🐍 SNAKE
+# =====================================================
+
 st.header("🐍 Snake Stats")
 
 snake_data = supabase.table("snake_stats") \
@@ -44,7 +47,11 @@ if snake_data:
 else:
     st.warning("No hay datos de Snake")
 
-# ---------------- CHESS ----------------
+
+# =====================================================
+# ♟ CHESS
+# =====================================================
+
 st.header("♟ Chess Stats")
 
 chess_data = supabase.table("chess_stats") \
@@ -69,7 +76,11 @@ if chess_data:
 else:
     st.warning("No hay datos de Chess")
 
-# ---------------- PONG ----------------
+
+# =====================================================
+# 🏓 PONG
+# =====================================================
+
 st.header("🏓 Pong Stats")
 
 pong_data = supabase.table("pong_stats") \
@@ -111,10 +122,62 @@ if pong_data:
 else:
     st.info("No hay datos de Pong todavía")
 
-# ---------------- DATOS BRUTOS ----------------
+
+# =====================================================
+# 🃏 BLACKJACK (NUEVO)
+# =====================================================
+
+st.header("🃏 Blackjack Stats")
+
+blackjack_data = supabase.table("blackjack_stats") \
+    .select("*") \
+    .eq("user_id", user.id) \
+    .execute().data
+
+if blackjack_data:
+
+    total_bj = len(blackjack_data)
+
+    wins = len([r for r in blackjack_data if "Ganas" in str(r.get("result"))])
+    losses = len([r for r in blackjack_data if "Pierdes" in str(r.get("result"))])
+    draws = len([r for r in blackjack_data if "Empate" in str(r.get("result"))])
+
+    winrate = (wins / total_bj) * 100 if total_bj > 0 else 0
+
+    player_scores = [
+        r.get("player_score", 0)
+        for r in blackjack_data
+        if r.get("player_score") is not None
+    ]
+
+    dealer_scores = [
+        r.get("dealer_score", 0)
+        for r in blackjack_data
+        if r.get("dealer_score") is not None
+    ]
+
+    avg_player = sum(player_scores) / len(player_scores) if player_scores else 0
+    avg_dealer = sum(dealer_scores) / len(dealer_scores) if dealer_scores else 0
+
+    st.write(f"Partidas: {total_bj}")
+    st.write(f"Victorias: {wins}")
+    st.write(f"Derrotas: {losses}")
+    st.write(f"Empates: {draws}")
+    st.write(f"Winrate: {winrate:.2f}%")
+    st.write(f"Media jugador: {avg_player:.2f}")
+    st.write(f"Media dealer: {avg_dealer:.2f}")
+
+else:
+    st.warning("No hay datos de Blackjack")
+
+
+# =====================================================
+# 📦 DATOS EN BRUTO
+# =====================================================
+
 st.header("📦 Tus datos")
 
-col1, col2, col3 = st.columns(3)
+col1, col2, col3, col4 = st.columns(4)
 
 def clean_df(data):
     df = pd.DataFrame(data)
@@ -134,3 +197,8 @@ with col3:
     st.subheader("Pong")
     if pong_data:
         st.dataframe(clean_df(pong_data))
+
+with col4:
+    st.subheader("Blackjack")
+    if blackjack_data:
+        st.dataframe(clean_df(blackjack_data))
