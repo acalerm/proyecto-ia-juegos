@@ -5,13 +5,13 @@ from utils.supabase_client import supabase
 from utils.session import get_user
 
 # =====================================================
-# 🔗 USER
+# 👤 USER
 # =====================================================
 
 user = get_user()
 
 # =====================================================
-# 🎮 LÓGICA
+# 🎮 LÓGICA DEL JUEGO
 # =====================================================
 
 def draw_card():
@@ -50,7 +50,7 @@ def ia_smart(hand, dealer_card):
         return "HIT" if dealer_card >= 7 else "STAND"
 
 # =====================================================
-# 🎨 UI CARTAS
+# 🎨 CARTAS UI
 # =====================================================
 
 def card_ui(card):
@@ -92,15 +92,24 @@ def render_hand(hand):
     return html_code
 
 # =====================================================
-# 💾 GUARDADO SUPABASE
+# 💾 GUARDAR EN SUPABASE (FIX display_name)
 # =====================================================
 
 def save_game(user, result, player_score, dealer_score, mode):
     if not user:
         return
 
+    display_name = None
+
+    if hasattr(user, "user_metadata") and user.user_metadata:
+        display_name = user.user_metadata.get("display_name")
+
+    if not display_name:
+        display_name = getattr(user, "email", "guest")
+
     supabase.table("blackjack_stats").insert({
         "user_id": user.id,
+        "display_name": display_name,
         "result": result,
         "player_score": player_score,
         "dealer_score": dealer_score,
@@ -111,7 +120,7 @@ def save_game(user, result, player_score, dealer_score, mode):
 # 📦 ESTADO
 # =====================================================
 
-st.set_page_config(page_title="Blackjack", layout="centered")
+st.set_page_config(page_title="Blackjack IA PRO", layout="centered")
 
 if "player" not in st.session_state:
     st.session_state.player = draw_hand()
@@ -249,7 +258,7 @@ with col3:
         st.rerun()
 
 # =====================================================
-# 🧾 RESULTADO + GUARDADO FIX
+# 🧾 RESULTADO + GUARDADO
 # =====================================================
 
 if st.session_state.done:
@@ -263,7 +272,7 @@ if st.session_state.done:
     else:
         st.info(st.session_state.result)
 
-    # 💾 GUARDAR SOLO UNA VEZ
+    # 💾 SOLO UNA VEZ
     if not st.session_state.saved and user:
 
         save_game(
