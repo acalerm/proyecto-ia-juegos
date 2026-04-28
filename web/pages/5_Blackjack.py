@@ -1,6 +1,14 @@
 import streamlit as st
 import random
 from streamlit.components.v1 import html
+from utils.supabase_client import supabase
+from utils.session import get_user
+
+# =====================================================
+# 🔗 USER
+# =====================================================
+
+user = get_user()
 
 # =====================================================
 # 🎮 LÓGICA
@@ -42,7 +50,7 @@ def ia_smart(hand, dealer_card):
         return "HIT" if dealer_card >= 7 else "STAND"
 
 # =====================================================
-# 🎨 UI
+# 🎨 UI CARTAS
 # =====================================================
 
 def card_ui(card):
@@ -57,11 +65,19 @@ def card_ui(card):
         value = str(card)
 
     return f"""
-    <div style="width:55px;height:80px;border-radius:10px;
-    background:white;display:flex;justify-content:center;
-    align-items:center;font-size:18px;font-weight:bold;
-    border:2px solid black;margin:4px;">
-    {value}{suit}
+    <div style="
+        width:55px;height:80px;
+        border-radius:10px;
+        background:white;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        font-size:18px;
+        font-weight:bold;
+        border:2px solid black;
+        margin:4px;
+    ">
+        {value}{suit}
     </div>
     """
 
@@ -76,13 +92,31 @@ def render_hand(hand):
     return html_code
 
 # =====================================================
-# 📦 ESTADO ROBUSTO
+# 💾 GUARDADO SUPABASE
 # =====================================================
 
-if "player" not in st.session_state or st.session_state.player is None:
+def save_game(user, result, player_score, dealer_score, mode):
+    if not user:
+        return
+
+    supabase.table("blackjack_stats").insert({
+        "user_id": user.id,
+        "result": result,
+        "player_score": player_score,
+        "dealer_score": dealer_score,
+        "mode": mode
+    }).execute()
+
+# =====================================================
+# 📦 ESTADO
+# =====================================================
+
+st.set_page_config(page_title="Blackjack", layout="centered")
+
+if "player" not in st.session_state:
     st.session_state.player = draw_hand()
 
-if "dealer" not in st.session_state or st.session_state.dealer is None:
+if "dealer" not in st.session_state:
     st.session_state.dealer = draw_hand()
 
 if "done" not in st.session_state:
@@ -91,16 +125,19 @@ if "done" not in st.session_state:
 if "result" not in st.session_state:
     st.session_state.result = None
 
+if "saved" not in st.session_state:
+    st.session_state.saved = False
+
 # =====================================================
 # 🎰 UI
 # =====================================================
 
-st.title("🃏 Blackjack")
+st.title("🃏 Blackjack IA PRO")
 
 mode = st.selectbox("Modo", ["Jugador", "IA"])
 
 # =====================================================
-# 🤖 IA AUTO
+# 🤖 MODO IA
 # =====================================================
 
 if mode == "IA" and not st.session_state.done:
@@ -141,7 +178,7 @@ if mode == "IA" and not st.session_state.done:
     st.session_state.result = result
     st.session_state.done = True
 
-    st.rerun()  # 🔥 CLAVE
+    st.rerun()
 
 # =====================================================
 # 🧑 JUGADOR
@@ -165,7 +202,7 @@ else:
     st.write("Carta visible:", st.session_state.dealer[0])
 
 # =====================================================
-# 🎮 BOTONES (FIX REAL)
+# 🎮 BOTONES
 # =====================================================
 
 game_over = st.session_state.done or mode == "IA"
@@ -180,7 +217,7 @@ with col1:
             st.session_state.done = True
             st.session_state.result = "💀 Pierdes"
 
-        st.rerun()  # 🔥 SOLUCIÓN AL BUG
+        st.rerun()
 
 with col2:
     if st.button("🛑 Plantarse", disabled=game_over):
@@ -199,7 +236,7 @@ with col2:
         else:
             st.session_state.result = "🤝 Empate"
 
-        st.rerun()  # 🔥 CLAVE
+        st.rerun()
 
 with col3:
     if st.button("🔄 Nueva partida"):
@@ -207,14 +244,16 @@ with col3:
         st.session_state.dealer = draw_hand()
         st.session_state.done = False
         st.session_state.result = None
+        st.session_state.saved = False
 
         st.rerun()
 
 # =====================================================
-# 🧾 RESULTADO
+# 🧾 RESULTADO + GUARDADO FIX
 # =====================================================
 
 if st.session_state.done:
+
     st.subheader("Resultado")
 
     if "Ganas" in str(st.session_state.result):
@@ -223,3 +262,16 @@ if st.session_state.done:
         st.error(st.session_state.result)
     else:
         st.info(st.session_state.result)
+
+    # 💾 GUARDAR SOLO UNA VEZ
+    if not st.session_state.saved and user:
+
+        save_game(
+            user=user,
+            result=st.session_state.result,
+            player_score=sum_hand(st.session_state.player),
+            dealer_score=sum_hand(st.session_state.dealer),
+            mode=mode
+        )
+
+        st.session_state.saved = True
