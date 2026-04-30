@@ -124,7 +124,7 @@ else:
 
 
 # =====================================================
-# 🃏 BLACKJACK (UPDATED)
+# 🃏 BLACKJACK
 # =====================================================
 
 st.header("🃏 Blackjack Stats")
@@ -208,7 +208,7 @@ else:
 
 st.header("📦 Tus datos")
 
-col1, col2, col3, col4 = st.columns(4)
+col1, col2, col3, col4, col5 = st.columns(5)
 
 def clean_df(data):
     df = pd.DataFrame(data)
@@ -233,3 +233,8 @@ with col4:
     st.subheader("Blackjack")
     if blackjack_data:
         st.dataframe(clean_df(blackjack_data))
+
+with col5:
+    st.subheader("GridWorld")
+    if gridworld_data:
+        st.dataframe(clean_df(gridworld_data))
