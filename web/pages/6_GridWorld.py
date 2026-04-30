@@ -5,9 +5,16 @@ import time
 from PIL import Image, ImageDraw, ImageFont
 import matplotlib.pyplot as plt
 
+# 🔌 NUEVO (supabase)
+from utils.supabase_client import supabase
+from utils.session import get_user
+
 st.set_page_config(page_title="GridWorld IA PRO FIX", layout="centered")
 
 st.title("🤖 GridWorld IA PRO (FIX UI + visión 3x3)")
+
+# 👤 NUEVO (usuario)
+user = get_user()
 
 # ---------------- FONT ----------------
 try:
@@ -247,6 +254,27 @@ if modo=="Entrenar":
 
         st.session_state.results=results
 
+        # 💾 GUARDADO EN SUPABASE
+        if user and results:
+            for d in results:
+                supabase.table("gridworld_stats").insert({
+                    "user_id": user.id,
+                    "display_name": user.user_metadata.get("display_name"),
+                    "algorithm": "SARSA",
+                    "difficulty": d,
+                    "episodes": episodes,
+                    "avg_reward": float(results[d]["SARSA"])
+                }).execute()
+
+                supabase.table("gridworld_stats").insert({
+                    "user_id": user.id,
+                    "display_name": user.user_metadata.get("display_name"),
+                    "algorithm": "Q-Learning",
+                    "difficulty": d,
+                    "episodes": episodes,
+                    "avg_reward": float(results[d]["Q"])
+                }).execute()
+
         st.success("Entrenamiento completo")
 
         # 📊 GRÁFICA AUTOMÁTICA
@@ -310,7 +338,7 @@ if modo=="Comparación visual":
             p1.image(draw(a1,g1,w1,t1))
             p2.image(draw(a2,g2,w2,t2))
 
-            time.sleep(0.5)  # 👈 CAMBIO AQUÍ
+            time.sleep(0.5)
 
 # =========================================================
 # 📄 EXPLICACIÓN
