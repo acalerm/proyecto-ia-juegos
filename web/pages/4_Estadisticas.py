@@ -172,6 +172,37 @@ else:
 
 
 # =====================================================
+# 🤖 GRIDWORLD
+# =====================================================
+
+st.header("🤖 GridWorld Stats")
+
+gridworld_data = supabase.table("gridworld_stats") \
+    .select("*") \
+    .eq("user_id", user.id) \
+    .execute().data
+
+if gridworld_data:
+
+    total_gw = len(gridworld_data)
+
+    wins_sarsa = len([r for r in gridworld_data if r.get("winner") == "SARSA"])
+    wins_ql = len([r for r in gridworld_data if r.get("winner") == "Q-Learning"])
+
+    avg_sarsa = sum([r.get("avg_reward_sarsa", 0) for r in gridworld_data]) / total_gw if total_gw else 0
+    avg_ql = sum([r.get("avg_reward_ql", 0) for r in gridworld_data]) / total_gw if total_gw else 0
+
+    st.write(f"Partidas registradas: {total_gw}")
+    st.write(f"Victorias SARSA: {wins_sarsa}")
+    st.write(f"Victorias Q-Learning: {wins_ql}")
+    st.write(f"Recompensa media SARSA: {avg_sarsa:.2f}")
+    st.write(f"Recompensa media Q-Learning: {avg_ql:.2f}")
+
+else:
+    st.warning("No hay datos de GridWorld todavía")
+
+
+# =====================================================
 # 📦 DATOS EN BRUTO
 # =====================================================
 
