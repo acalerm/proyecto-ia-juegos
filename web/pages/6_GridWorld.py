@@ -310,7 +310,7 @@ if modo=="Comparación visual":
             p1.image(draw(a1,g1,w1,t1))
             p2.image(draw(a2,g2,w2,t2))
 
-            time.sleep(0.1)
+            time.sleep(0.5)  # 👈 CAMBIO AQUÍ
 
 # =========================================================
 # 📄 EXPLICACIÓN
