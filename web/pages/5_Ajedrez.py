@@ -26,7 +26,7 @@ if "last_action" not in st.session_state:
 board = st.session_state.board
 
 # --- DIFICULTAD ---
-dificultad = st.selectbox("Dificultad", ["Fácil", "Difícil"])
+dificultad = st.selectbox("Dificultad", ["Fácil (Rule Based)", "Difícil (Minimax)"])
 
 # --- IA FÁCIL ---
 def movimiento_ia_random(board):
