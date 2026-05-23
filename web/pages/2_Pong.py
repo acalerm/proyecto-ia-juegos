@@ -61,7 +61,7 @@ col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     if st.button("▶️ Start"):
         st.session_state.running = True
-        st.session_state.result = None  # reset mensaje
+        st.session_state.result = None
 
 with col2:
     if st.button("⏸ Stop"):
@@ -182,16 +182,13 @@ def draw():
 # ---------------- UI ----------------
 st.write(f"{st.session_state.s1} - {st.session_state.s2}")
 
-# 🏆 MENSAJE PERSISTENTE (FIX REAL)
+# 🏆 RESULTADO FIJO (NO SE PIERDE)
 if st.session_state.result == "WIN":
     st.success("🏆 Has ganado")
-
 elif st.session_state.result == "LOSE":
     st.error("💀 Has perdido")
-
 elif st.session_state.result == "LEFT_WIN":
     st.success("🏆 Ha ganado la izquierda")
-
 elif st.session_state.result == "RIGHT_WIN":
     st.error("💀 Ha ganado la derecha")
 
@@ -230,3 +227,42 @@ if st.session_state.running:
             guardar("LOSE")
 
     st.rerun()
+
+
+# =====================================================
+# 📄 EXPLICACIÓN
+# =====================================================
+
+st.divider()
+st.header("📄 Explicación del juego")
+
+st.write("""
+Este proyecto implementa un juego de Pong con distintos modos de comportamiento para comparar inteligencia artificial y sistemas automáticos.
+
+### 🧠 Modos disponibles
+
+- **Jugador vs IA**:  
+  El jugador controla la pala izquierda manualmente y compite contra una IA simple en la derecha.
+
+- **IA vs Automático**:  
+  La pala izquierda funciona como IA simple y la derecha puede comportarse de dos formas:
+  - 🟢 **Fácil**: movimiento automático arriba/abajo sin seguir la bola.
+  - 🔴 **Avanzado**: comportamiento tipo IA básica que sigue la posición de la bola.
+
+### 🎯 Objetivo
+El objetivo es llegar a **5 puntos** antes que el oponente.
+
+### 🤖 Comportamiento de la IA
+La IA utilizada es una estrategia basada en reglas simples:
+- Sigue la posición vertical de la bola.
+- Ajusta su movimiento de forma proporcional.
+- No utiliza aprendizaje por refuerzo en este módulo.
+
+### 📊 Finalidad del proyecto
+Este módulo permite comparar:
+- comportamiento humano vs IA
+- IA vs comportamiento automático
+- dificultad de predicción en sistemas simples
+
+Todo esto forma parte del proyecto de IA aplicada a videojuegos.
+""")
