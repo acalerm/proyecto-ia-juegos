@@ -9,7 +9,7 @@ from utils.supabase_client import supabase
 from utils.session import get_user
 
 # =====================================================
-# 🧠 CONFIG GENERAL
+# 🧠 CONFIG
 # =====================================================
 
 st.set_page_config(page_title="Snake IA", layout="wide")
@@ -27,6 +27,12 @@ if "Q" not in st.session_state:
 
 if "scores" not in st.session_state:
     st.session_state.scores = []
+
+if "graph_ready" not in st.session_state:
+    st.session_state.graph_ready = False
+
+if "fig" not in st.session_state:
+    st.session_state.fig = None
 
 # =====================================================
 # 🎮 MODE
@@ -95,7 +101,7 @@ def move(snake, direction, action, food):
     return snake, direction, food, reward, done
 
 # =====================================================
-# 🧠 ESTADO / RL
+# 🧠 RL
 # =====================================================
 
 def get_state(snake, food, direction):
@@ -202,6 +208,8 @@ if modo == "Entrenar IA":
 
         st.session_state.Q = {}
         st.session_state.scores = []
+        st.session_state.graph_ready = False
+        st.session_state.fig = None
 
         progress = st.progress(0)
         log = st.empty()
@@ -241,6 +249,7 @@ if modo == "Entrenar IA":
 
             progress.progress((ep + 1) / episodes)
 
+        st.session_state.graph_ready = True
         st.success("Entrenamiento completado")
 
         # 💾 SUPABASE
@@ -255,57 +264,64 @@ if modo == "Entrenar IA":
             }).execute()
 
 # =====================================================
-# 📊 GRÁFICA
+# 📊 GRÁFICA (FIX LAG)
 # =====================================================
 
-if modo == "Entrenar IA" and st.session_state.scores:
+if modo == "Entrenar IA" and st.session_state.graph_ready:
 
     import matplotlib.pyplot as plt
 
-    scores = st.session_state.scores
-    media = [np.mean(scores[max(0, i-50):i+1]) for i in range(len(scores))]
+    if st.session_state.fig is None:
 
-    fig, ax = plt.subplots()
-    ax.plot(scores, alpha=0.3)
-    ax.plot(media)
+        scores = st.session_state.scores
+        media = [np.mean(scores[max(0, i-50):i+1]) for i in range(len(scores))]
 
-    st.pyplot(fig)
+        fig, ax = plt.subplots()
+        ax.plot(scores, alpha=0.3)
+        ax.plot(media)
+
+        st.session_state.fig = fig
+
+    st.pyplot(st.session_state.fig)
 
 # =====================================================
-# 🔵 SIMULACIÓN
+# 🔵 SIMULACIÓN (FIX PRINCIPAL)
 # =====================================================
 
 if modo == "Simulación IA":
 
-    if not st.session_state.Q:
-        st.warning("⚠️ Primero entrena la IA")
-    else:
+    snake, food, direction = reset_env()
+    placeholder = st.empty()
 
-        snake, food, direction = reset_env()
-        placeholder = st.empty()
+    score = 0
+    done = False
 
-        score = 0
-        done = False
+    Q = st.session_state.Q  # puede estar vacío
 
-        for _ in range(300):
+    for _ in range(300):
 
-            state = get_state(snake, food, direction)
+        state = get_state(snake, food, direction)
+
+        # 🔥 SIN BLOQUEO: si no hay entrenamiento → random
+        if state not in Q:
+            action = random.randint(0, 2)
+        else:
             action = choose_action(state)
 
-            snake, direction, food, reward, done = move(
-                snake, direction, action, food
-            )
+        snake, direction, food, reward, done = move(
+            snake, direction, action, food
+        )
 
-            if reward == 20:
-                score += 1
+        if reward == 20:
+            score += 1
 
-            placeholder.image(draw(snake, food), width=360)
-            time.sleep(0.08)
+        placeholder.image(draw(snake, food), width=360)
+        time.sleep(0.08)
 
-            if done:
-                break
+        if done:
+            break
 
-        st.success(f"💀 Game Over | Score: {score}")
+    st.success(f"💀 Game Over | Score: {score}")
 
 # =====================================================
 # 📥 Q-TABLE
@@ -336,12 +352,10 @@ if modo == "Explicación":
 
 Este juego utiliza Q-Learning.
 
-La IA aprende mediante:
-- recompensa por comer comida
-- penalización por morir
-- exploración de estados
+- Aprende mediante recompensas
+- Construye una Q-table
+- Sin entrenamiento → comportamiento aleatorio
+- Con entrenamiento → política optimizada
 
-Sin entrenamiento, la IA no tiene conocimiento previo.
-
-La Q-table representa la “memoria” del agente.
+La Q-table representa la memoria del agente.
 """)
