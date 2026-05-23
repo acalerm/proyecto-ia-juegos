@@ -4,6 +4,7 @@ import numpy as np
 import time
 import json
 from PIL import Image, ImageDraw
+import matplotlib.pyplot as plt
 
 # =====================================================
 # CONFIG
@@ -32,12 +33,6 @@ modo = st.selectbox("Modo", [
     "Ver Q-Table",
     "Explicación"
 ])
-
-# =====================================================
-# SPEED CONTROL (NUEVO)
-# =====================================================
-
-speed = st.slider("Velocidad simulación", 0.02, 0.5, 0.15)
 
 # =====================================================
 # ENV
@@ -176,7 +171,7 @@ def draw(snake, food):
     return img
 
 # =====================================================
-# TRAINING (BAR + FIX)
+# TRAINING
 # =====================================================
 
 if modo == "Entrenar IA":
@@ -235,8 +230,6 @@ if modo == "Entrenar IA":
 
 if modo == "Entrenar IA" and st.session_state.scores:
 
-    import matplotlib.pyplot as plt
-
     scores = st.session_state.scores
     media = [np.mean(scores[max(0, i-50):i+1]) for i in range(len(scores))]
 
@@ -247,10 +240,13 @@ if modo == "Entrenar IA" and st.session_state.scores:
     st.pyplot(fig)
 
 # =====================================================
-# SIMULATION (REPLAY FIX + SPEED CONTROL)
+# SIMULATION (SLIDER SOLO AQUÍ)
 # =====================================================
 
 if modo == "Simulación IA":
+
+    # ✅ SOLO AQUÍ aparece el slider
+    speed = st.slider("Velocidad simulación", 0.02, 0.5, 0.15)
 
     if st.button("▶ Iniciar simulación"):
 
@@ -292,7 +288,7 @@ if modo == "Simulación IA":
         st.success(f"💀 Score: {score}")
 
 # =====================================================
-# Q-TABLE (RESTORED DOWNLOAD BUTTON)
+# Q-TABLE
 # =====================================================
 
 if modo == "Ver Q-Table":
@@ -310,7 +306,7 @@ if modo == "Ver Q-Table":
     )
 
 # =====================================================
-# EXPLANATION
+# EXPLICACIÓN
 # =====================================================
 
 if modo == "Explicación":
