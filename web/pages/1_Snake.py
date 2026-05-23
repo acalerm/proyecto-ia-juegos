@@ -1,134 +1,188 @@
 import streamlit as st
 import random
+import numpy as np
+import time
+import json
 from PIL import Image, ImageDraw
 
 from utils.supabase_client import supabase
 from utils.session import get_user
 
-st.title("🐍 Snake")
+# =====================================================
+# 🧠 CONFIG GENERAL
+# =====================================================
+
+st.set_page_config(page_title="Snake IA", layout="wide")
+
+st.title("🐍 Snake IA (Q-Learning)")
 
 user = get_user()
 
-# ---------------- STATE ----------------
-if "snake" not in st.session_state:
-    st.session_state.snake = [(9, 9)]
+# =====================================================
+# 🌍 STATE GLOBAL
+# =====================================================
 
-if "food" not in st.session_state:
-    st.session_state.food = (5, 5)
+if "Q" not in st.session_state:
+    st.session_state.Q = {}
 
-if "dir" not in st.session_state:
-    st.session_state.dir = "RIGHT"
+if "scores" not in st.session_state:
+    st.session_state.scores = []
 
-if "running" not in st.session_state:
-    st.session_state.running = False
+# =====================================================
+# 🎮 MODE
+# =====================================================
 
-if "score" not in st.session_state:
-    st.session_state.score = 0
+modo = st.selectbox("Modo", [
+    "Entrenar IA",
+    "Simulación IA",
+    "Ver Q-Table",
+    "Explicación"
+])
 
+# =====================================================
+# 🧱 ENTORNO
+# =====================================================
 
-# ---------------- GUARDAR ----------------
-def guardar():
-    if user:
-        try:
-            supabase.table("snake_stats").insert({
-                "user_id": user.id,
-                "display_name": user.user_metadata.get("display_name"),
-                "max_score": st.session_state.score,
-                "last_score": st.session_state.score,
-                "episodes": 1,
-                "algorithm": "manual"
-            }).execute()
-        except Exception as e:
-            st.error(f"Error guardando: {e}")
+GRID = 18
+dirs = ['UP', 'RIGHT', 'DOWN', 'LEFT']
 
+def reset_env():
+    snake = [(9, 9)]
+    food = (random.randint(0, 17), random.randint(0, 17))
+    direction = random.choice(dirs)
+    return snake, food, direction
 
-# ---------------- CONTROLS ----------------
-col1, col2, col3, col4, col5, col6 = st.columns(6)
+def check_collision(snake):
+    head = snake[0]
+    return (
+        head[0] < 0 or head[0] >= GRID or
+        head[1] < 0 or head[1] >= GRID or
+        head in snake[1:]
+    )
 
-with col1:
-    if st.button("⬆️"):
-        st.session_state.dir = "UP"
+def move(snake, direction, action, food):
 
-with col2:
-    if st.button("⬇️"):
-        st.session_state.dir = "DOWN"
+    idx = dirs.index(direction)
 
-with col3:
-    if st.button("⬅️"):
-        st.session_state.dir = "LEFT"
+    if action == 0:
+        direction = dirs[(idx - 1) % 4]
+    elif action == 2:
+        direction = dirs[(idx + 1) % 4]
 
-with col4:
-    if st.button("➡️"):
-        st.session_state.dir = "RIGHT"
+    x, y = snake[0]
 
-with col5:
-    if st.button("▶ Start"):
-        st.session_state.running = not st.session_state.running
-
-with col6:
-    if st.button("🔄 Reset"):
-        guardar()  # cuenta como partida terminada
-
-        st.session_state.snake = [(9, 9)]
-        st.session_state.food = (5, 5)
-        st.session_state.dir = "RIGHT"
-        st.session_state.running = False
-        st.session_state.score = 0
-
-        st.rerun()
-
-
-# ---------------- STEP ----------------
-def step():
-    head = st.session_state.snake[0]
-    x, y = head
-
-    if st.session_state.dir == "UP":
+    if direction == 'UP':
         y -= 1
-    elif st.session_state.dir == "DOWN":
+    elif direction == 'DOWN':
         y += 1
-    elif st.session_state.dir == "LEFT":
+    elif direction == 'LEFT':
         x -= 1
-    elif st.session_state.dir == "RIGHT":
+    elif direction == 'RIGHT':
         x += 1
 
     new_head = (x, y)
+    snake.insert(0, new_head)
 
-    # 💀 colisión
-    if x < 0 or x > 17 or y < 0 or y > 17 or new_head in st.session_state.snake:
-        guardar()
-        st.session_state.running = False
-        st.error(f"💀 Game Over | Score: {st.session_state.score}")
-        return
+    reward = -0.1
+    done = check_collision(snake)
 
-    st.session_state.snake.insert(0, new_head)
-
-    # 🍎 comida
-    if new_head == st.session_state.food:
-        st.session_state.score += 1
-        st.session_state.food = (random.randint(0, 17), random.randint(0, 17))
+    if new_head == food:
+        reward = 20
+        food = (random.randint(0, 17), random.randint(0, 17))
     else:
-        st.session_state.snake.pop()
+        snake.pop()
 
+    return snake, direction, food, reward, done
 
-# ---------------- LOOP ----------------
-if st.session_state.running:
-    step()
-    st.rerun()
+# =====================================================
+# 🧠 ESTADO / RL
+# =====================================================
 
+def get_state(snake, food, direction):
 
-# ---------------- DRAW ----------------
-def draw():
+    head = snake[0]
+    idx = dirs.index(direction)
+
+    danger = []
+
+    for act in [1, 0, 2]:
+        tmp = snake.copy()
+        tmp_dir = direction
+
+        if act == 0:
+            tmp_dir = dirs[(idx - 1) % 4]
+        elif act == 2:
+            tmp_dir = dirs[(idx + 1) % 4]
+
+        x, y = tmp[0]
+
+        if tmp_dir == 'UP':
+            y -= 1
+        elif tmp_dir == 'DOWN':
+            y += 1
+        elif tmp_dir == 'LEFT':
+            x -= 1
+        elif tmp_dir == 'RIGHT':
+            x += 1
+
+        tmp.insert(0, (x, y))
+
+        if (x, y) != food:
+            tmp.pop()
+
+        danger.append(int(check_collision(tmp)))
+
+    food_dir = [
+        int(food[1] < head[1]),
+        int(food[1] > head[1]),
+        int(food[0] < head[0]),
+        int(food[0] > head[0])
+    ]
+
+    return tuple(danger + food_dir + [idx])
+
+def choose_action(state):
+    Q = st.session_state.Q
+
+    if state not in Q:
+        Q[state] = [0, 0, 0]
+
+    if random.random() < 0.1:
+        return random.randint(0, 2)
+
+    return int(np.argmax(Q[state]))
+
+def update_q(state, action, reward, next_state):
+
+    Q = st.session_state.Q
+    alpha = 0.1
+    gamma = 0.9
+
+    if state not in Q:
+        Q[state] = [0, 0, 0]
+    if next_state not in Q:
+        Q[next_state] = [0, 0, 0]
+
+    Q[state][action] += alpha * (
+        reward + gamma * np.max(Q[next_state]) - Q[state][action]
+    )
+
+# =====================================================
+# 🎨 DRAW
+# =====================================================
+
+def draw(snake, food):
+
     img = Image.new("RGB", (360, 360), (0, 0, 0))
     d = ImageDraw.Draw(img)
 
-    for s in st.session_state.snake:
+    for s in snake:
         d.rectangle(
             [s[0]*20, s[1]*20, s[0]*20+20, s[1]*20+20],
             fill=(0, 255, 0)
         )
 
-    fx, fy = st.session_state.food
+    fx, fy = food
     d.rectangle(
         [fx*20, fy*20, fx*20+20, fy*20+20],
         fill=(255, 0, 0)
@@ -136,8 +190,158 @@ def draw():
 
     return img
 
+# =====================================================
+# 🏋️ ENTRENAMIENTO
+# =====================================================
 
-# ---------------- UI ----------------
-st.write(f"Score: {st.session_state.score}")
+if modo == "Entrenar IA":
 
-st.image(draw())
+    episodes = st.slider("Episodios", 1000, 30000, 5000, step=1000)
+
+    if st.button("Entrenar"):
+
+        st.session_state.Q = {}
+        st.session_state.scores = []
+
+        progress = st.progress(0)
+        log = st.empty()
+
+        for ep in range(episodes):
+
+            snake, food, direction = reset_env()
+            state = get_state(snake, food, direction)
+
+            score = 0
+            done = False
+
+            for _ in range(200):
+
+                action = choose_action(state)
+
+                snake, direction, food, reward, done = move(
+                    snake, direction, action, food
+                )
+
+                next_state = get_state(snake, food, direction)
+
+                update_q(state, action, reward, next_state)
+
+                state = next_state
+
+                if reward == 20:
+                    score += 1
+
+                if done:
+                    break
+
+            st.session_state.scores.append(score)
+
+            if ep % 200 == 0:
+                log.text(f"Episodio {ep}/{episodes}")
+
+            progress.progress((ep + 1) / episodes)
+
+        st.success("Entrenamiento completado")
+
+        # 💾 SUPABASE
+        if user:
+            supabase.table("snake_stats").insert({
+                "user_id": user.id,
+                "display_name": user.user_metadata.get("display_name"),
+                "max_score": max(st.session_state.scores),
+                "last_score": st.session_state.scores[-1],
+                "episodes": episodes,
+                "algorithm": "Q-Learning"
+            }).execute()
+
+# =====================================================
+# 📊 GRÁFICA
+# =====================================================
+
+if modo == "Entrenar IA" and st.session_state.scores:
+
+    import matplotlib.pyplot as plt
+
+    scores = st.session_state.scores
+    media = [np.mean(scores[max(0, i-50):i+1]) for i in range(len(scores))]
+
+    fig, ax = plt.subplots()
+    ax.plot(scores, alpha=0.3)
+    ax.plot(media)
+
+    st.pyplot(fig)
+
+# =====================================================
+# 🔵 SIMULACIÓN
+# =====================================================
+
+if modo == "Simulación IA":
+
+    if not st.session_state.Q:
+        st.warning("⚠️ Primero entrena la IA")
+    else:
+
+        snake, food, direction = reset_env()
+        placeholder = st.empty()
+
+        score = 0
+        done = False
+
+        for _ in range(300):
+
+            state = get_state(snake, food, direction)
+            action = choose_action(state)
+
+            snake, direction, food, reward, done = move(
+                snake, direction, action, food
+            )
+
+            if reward == 20:
+                score += 1
+
+            placeholder.image(draw(snake, food), width=360)
+            time.sleep(0.08)
+
+            if done:
+                break
+
+        st.success(f"💀 Game Over | Score: {score}")
+
+# =====================================================
+# 📥 Q-TABLE
+# =====================================================
+
+if modo == "Ver Q-Table":
+
+    Q = st.session_state.Q
+
+    st.write(f"Estados aprendidos: {len(Q)}")
+
+    st.json(dict(list(Q.items())[:20]))
+
+    st.download_button(
+        "⬇️ Descargar Q-Table",
+        data=json.dumps(Q),
+        file_name="snake_qtable.json"
+    )
+
+# =====================================================
+# 📄 EXPLICACIÓN
+# =====================================================
+
+if modo == "Explicación":
+
+    st.markdown("""
+## 🧠 Snake IA
+
+Este juego utiliza Q-Learning.
+
+La IA aprende mediante:
+- recompensa por comer comida
+- penalización por morir
+- exploración de estados
+
+Sin entrenamiento, la IA no tiene conocimiento previo.
+
+La Q-table representa la “memoria” del agente.
+""")
