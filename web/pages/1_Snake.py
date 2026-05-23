@@ -5,21 +5,19 @@ import time
 import json
 from PIL import Image, ImageDraw
 
-from utils.supabase_client import supabase
 from utils.session import get_user
 
 # =====================================================
-# 🧠 CONFIG
+# CONFIG
 # =====================================================
 
 st.set_page_config(page_title="Snake IA", layout="wide")
-
-st.title("🐍 Snake IA (SARSA)")
+st.title("🐍 Snake IA (SARSA - Replay System)")
 
 user = get_user()
 
 # =====================================================
-# 🌍 STATE
+# STATE
 # =====================================================
 
 if "Q" not in st.session_state:
@@ -28,11 +26,11 @@ if "Q" not in st.session_state:
 if "scores" not in st.session_state:
     st.session_state.scores = []
 
-if "graph_ready" not in st.session_state:
-    st.session_state.graph_ready = False
+if "trained" not in st.session_state:
+    st.session_state.trained = False
 
 # =====================================================
-# 🎮 MODE
+# MODE
 # =====================================================
 
 modo = st.selectbox("Modo", [
@@ -43,7 +41,7 @@ modo = st.selectbox("Modo", [
 ])
 
 # =====================================================
-# 🧱 ENV
+# ENVIRONMENT
 # =====================================================
 
 GRID = 18
@@ -91,7 +89,7 @@ def move(snake, direction, action, food):
     return snake, direction, food, reward, done
 
 # =====================================================
-# 🧠 STATE + SARSA
+# STATE + SARSA
 # =====================================================
 
 def get_state(snake, food, direction):
@@ -134,6 +132,7 @@ def get_state(snake, food, direction):
 
 def choose(state):
     Q = st.session_state.Q
+
     if state not in Q:
         Q[state] = [0, 0, 0]
 
@@ -155,24 +154,29 @@ def update(s, a, r, ns, na):
     Q[s][a] += alpha * (r + gamma * Q[ns][na] - Q[s][a])
 
 # =====================================================
-# 🎨 DRAW
+# DRAW
 # =====================================================
 
 def draw(snake, food):
-
     img = Image.new("RGB", (360, 360), (0, 0, 0))
     d = ImageDraw.Draw(img)
 
     for s in snake:
-        d.rectangle([s[0]*20, s[1]*20, s[0]*20+20, s[1]*20+20], fill=(0, 255, 0))
+        d.rectangle(
+            [s[0]*20, s[1]*20, s[0]*20+20, s[1]*20+20],
+            fill=(0, 255, 0)
+        )
 
     fx, fy = food
-    d.rectangle([fx*20, fy*20, fx*20+20, fy*20+20], fill=(255, 0, 0))
+    d.rectangle(
+        [fx*20, fy*20, fx*20+20, fy*20+20],
+        fill=(255, 0, 0)
+    )
 
     return img
 
 # =====================================================
-# 🏋️ TRAIN
+# TRAINING
 # =====================================================
 
 if modo == "Entrenar IA":
@@ -183,23 +187,24 @@ if modo == "Entrenar IA":
 
         st.session_state.Q = {}
         st.session_state.scores = []
-        st.session_state.graph_ready = False
 
         progress = st.progress(0)
-        log = st.empty()
+        status = st.empty()
 
         for ep in range(episodes):
 
             snake, food, direction = reset_env()
+
             s = get_state(snake, food, direction)
             a = choose(s)
 
             score = 0
-            done = False
 
             for _ in range(200):
 
-                snake, direction, food, r, done = move(snake, direction, a, food)
+                snake, direction, food, r, done = move(
+                    snake, direction, a, food
+                )
 
                 ns = get_state(snake, food, direction)
                 na = choose(ns)
@@ -217,20 +222,20 @@ if modo == "Entrenar IA":
             st.session_state.scores.append(score)
 
             if ep % 200 == 0:
-                log.text(f"Episodio {ep}/{episodes}")
+                status.text(f"Episodio {ep}/{episodes}")
 
             progress.progress((ep + 1) / episodes)
 
         progress.progress(1.0)
-        st.session_state.graph_ready = True
+        st.session_state.trained = True
 
         st.success("Entrenamiento completado")
 
 # =====================================================
-# 📊 GRAPH
+# GRAPH
 # =====================================================
 
-if modo == "Entrenar IA" and st.session_state.graph_ready:
+if modo == "Entrenar IA" and st.session_state.scores:
 
     import matplotlib.pyplot as plt
 
@@ -244,21 +249,27 @@ if modo == "Entrenar IA" and st.session_state.graph_ready:
     st.pyplot(fig)
 
 # =====================================================
-# 🔵 SIMULACIÓN (FIX FINAL: BOTÓN)
+# 🔵 SIMULATION (REPLAY FIX)
 # =====================================================
 
 if modo == "Simulación IA":
 
-    st.info("Pulsa el botón para iniciar la simulación")
+    if not st.session_state.trained:
+        st.warning("⚠️ Aún no has entrenado la IA")
 
     if st.button("▶ Iniciar simulación"):
 
         snake, food, direction = reset_env()
-        placeholder = st.empty()
 
         Q = st.session_state.Q
+        frames = []
+
         score = 0
         done = False
+
+        # =================================================
+        # 1. SIMULACIÓN (SIN UI)
+        # =================================================
 
         for _ in range(300):
 
@@ -276,17 +287,30 @@ if modo == "Simulación IA":
             if r == 20:
                 score += 1
 
-            placeholder.image(draw(snake, food), width=360)
-
-            time.sleep(0.15)  # lento y estable
+            frames.append((snake.copy(), food))
 
             if done:
                 break
 
+        # =================================================
+        # 2. REPLAY (CON UI)
+        # =================================================
+
+        placeholder = st.empty()
+
+        for snake_frame, food_frame in frames:
+
+            placeholder.image(
+                draw(snake_frame, food_frame),
+                width=360
+            )
+
+            time.sleep(0.08)
+
         st.success(f"💀 Score: {score}")
 
 # =====================================================
-# 📥 Q-TABLE (SAFE JSON FIX)
+# Q-TABLE
 # =====================================================
 
 if modo == "Ver Q-Table":
@@ -304,20 +328,20 @@ if modo == "Ver Q-Table":
     )
 
 # =====================================================
-# 📄 EXPLICACIÓN (CORREGIDA SARSA)
+# EXPLANATION
 # =====================================================
 
 if modo == "Explicación":
 
     st.markdown("""
-## 🧠 Snake IA (SARSA)
+## 🧠 Snake IA - SARSA
 
-Este agente aprende mediante **SARSA**:
+Este agente aprende mediante SARSA:
 
-- aprende en función de la acción siguiente real
-- actualiza la política paso a paso
-- explora el entorno mediante epsilon-greedy
+- aprende con la acción real siguiente
+- construye una Q-table progresiva
+- mejora mediante exploración
 
-Sin entrenamiento → comportamiento aleatorio  
-Con entrenamiento → política aprendida en Q-table
+🔹 Sin entrenamiento → aleatorio  
+🔹 Con entrenamiento → política aprendida
 """)
