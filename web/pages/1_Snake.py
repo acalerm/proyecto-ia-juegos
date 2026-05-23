@@ -12,7 +12,7 @@ from utils.session import get_user
 # =====================================================
 
 st.set_page_config(page_title="Snake IA", layout="wide")
-st.title("🐍 Snake IA (SARSA - Replay System)")
+st.title("🐍 Snake IA (SARSA - Replay estable)")
 
 user = get_user()
 
@@ -26,9 +26,6 @@ if "Q" not in st.session_state:
 if "scores" not in st.session_state:
     st.session_state.scores = []
 
-if "trained" not in st.session_state:
-    st.session_state.trained = False
-
 # =====================================================
 # MODE
 # =====================================================
@@ -41,7 +38,7 @@ modo = st.selectbox("Modo", [
 ])
 
 # =====================================================
-# ENVIRONMENT
+# ENV
 # =====================================================
 
 GRID = 18
@@ -158,6 +155,7 @@ def update(s, a, r, ns, na):
 # =====================================================
 
 def draw(snake, food):
+
     img = Image.new("RGB", (360, 360), (0, 0, 0))
     d = ImageDraw.Draw(img)
 
@@ -176,19 +174,18 @@ def draw(snake, food):
     return img
 
 # =====================================================
-# TRAINING
+# TRAINING (FIX PROGRESO)
 # =====================================================
 
 if modo == "Entrenar IA":
 
-    episodes = st.slider("Episodios", 1000, 30000, 5000, 1000)
+    episodes = st.slider("Episodios", 1000, 20000, 5000, 1000)
 
     if st.button("Entrenar"):
 
         st.session_state.Q = {}
         st.session_state.scores = []
 
-        progress = st.progress(0)
         status = st.empty()
 
         for ep in range(episodes):
@@ -222,56 +219,29 @@ if modo == "Entrenar IA":
             st.session_state.scores.append(score)
 
             if ep % 200 == 0:
-                status.text(f"Episodio {ep}/{episodes}")
+                status.text(f"Entrenando... {ep}/{episodes}")
 
-            progress.progress((ep + 1) / episodes)
-
-        progress.progress(1.0)
-        st.session_state.trained = True
-
-        st.success("Entrenamiento completado")
+        status.success("✅ Entrenamiento completado")
 
 # =====================================================
-# GRAPH
-# =====================================================
-
-if modo == "Entrenar IA" and st.session_state.scores:
-
-    import matplotlib.pyplot as plt
-
-    scores = st.session_state.scores
-    media = [np.mean(scores[max(0, i-50):i+1]) for i in range(len(scores))]
-
-    fig, ax = plt.subplots()
-    ax.plot(scores, alpha=0.3)
-    ax.plot(media)
-
-    st.pyplot(fig)
-
-# =====================================================
-# 🔵 SIMULATION (REPLAY FIX)
+# SIMULACIÓN (REPLAY ESTABLE)
 # =====================================================
 
 if modo == "Simulación IA":
 
-    if not st.session_state.trained:
-        st.warning("⚠️ Aún no has entrenado la IA")
-
     if st.button("▶ Iniciar simulación"):
 
         snake, food, direction = reset_env()
-
         Q = st.session_state.Q
+
         frames = []
-
         score = 0
-        done = False
 
-        # =================================================
+        # ===============================
         # 1. SIMULACIÓN (SIN UI)
-        # =================================================
+        # ===============================
 
-        for _ in range(300):
+        for _ in range(200):
 
             state = get_state(snake, food, direction)
 
@@ -292,20 +262,17 @@ if modo == "Simulación IA":
             if done:
                 break
 
-        # =================================================
-        # 2. REPLAY (CON UI)
-        # =================================================
+        # ===============================
+        # 2. REPLAY VISUAL
+        # ===============================
 
         placeholder = st.empty()
 
-        for snake_frame, food_frame in frames:
+        for s_frame, f_frame in frames:
 
-            placeholder.image(
-                draw(snake_frame, food_frame),
-                width=360
-            )
+            placeholder.image(draw(s_frame, f_frame), width=360)
 
-            time.sleep(0.08)
+            time.sleep(1.0)  # 🔥 lento para ver bien (debug)
 
         st.success(f"💀 Score: {score}")
 
@@ -317,31 +284,21 @@ if modo == "Ver Q-Table":
 
     Q = st.session_state.Q
 
-    st.write(f"Estados aprendidos: {len(Q)}")
+    st.write(f"Estados: {len(Q)}")
 
     st.json({str(k): v for k, v in list(Q.items())[:20]})
 
-    st.download_button(
-        "⬇️ Descargar Q-Table",
-        data=json.dumps({str(k): v for k, v in Q.items()}),
-        file_name="snake_qtable.json"
-    )
-
 # =====================================================
-# EXPLANATION
+# EXPLICACIÓN
 # =====================================================
 
 if modo == "Explicación":
 
     st.markdown("""
-## 🧠 Snake IA - SARSA
+## 🧠 Snake IA (SARSA)
 
-Este agente aprende mediante SARSA:
-
-- aprende con la acción real siguiente
-- construye una Q-table progresiva
-- mejora mediante exploración
-
-🔹 Sin entrenamiento → aleatorio  
-🔹 Con entrenamiento → política aprendida
+- Entrenamiento offline (sin render)
+- Simulación con replay de frames
+- Evita problemas de Streamlit en tiempo real
+- Aprendizaje mediante Q-table (SARSA)
 """)
