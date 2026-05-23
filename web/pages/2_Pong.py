@@ -20,7 +20,7 @@ mode = st.selectbox("Modo", [
 
 difficulty = None
 if mode == "IA vs Automático":
-    difficulty = st.selectbox("Dificultad", [
+    difficulty = st.selectbox("Dificultad automático", [
         "Fácil",
         "Avanzado"
     ])
@@ -106,33 +106,21 @@ def step():
         vy *= -1
 
     # =====================================================
-    # 🟢 PLAYER (IA o jugador según modo)
+    # 🟢 PALA IZQUIERDA
     # =====================================================
     if mode == "Jugador vs IA":
+        pass  # jugador manual
+
+    elif mode == "IA vs Automático":
         if y > st.session_state.player:
             st.session_state.player += 3
         else:
             st.session_state.player -= 3
 
-    elif mode == "IA vs Automático":
-        if difficulty == "Avanzado":
-            if y > st.session_state.player:
-                st.session_state.player += 4
-            else:
-                st.session_state.player -= 4
-        else:
-            # fácil: movimiento básico arriba/abajo
-            st.session_state.player += st.session_state.ai_dir
-
-            if st.session_state.player <= 0:
-                st.session_state.ai_dir = 2
-            elif st.session_state.player >= 150:
-                st.session_state.ai_dir = -2
-
     st.session_state.player = max(0, min(150, st.session_state.player))
 
     # =====================================================
-    # 🔴 AI OPPONENT
+    # 🔴 PALA DERECHA
     # =====================================================
     if mode == "Jugador vs IA":
         if y > st.session_state.ai:
@@ -141,13 +129,14 @@ def step():
             st.session_state.ai -= 3
 
     elif mode == "IA vs Automático":
+
         if difficulty == "Avanzado":
             if y > st.session_state.ai:
                 st.session_state.ai += 2
             else:
                 st.session_state.ai -= 2
+
         else:
-            # fácil: movimiento aleatorio controlado
             st.session_state.ai += st.session_state.ai_dir
 
             if st.session_state.ai <= 0:
@@ -200,6 +189,7 @@ st.write(f"{st.session_state.s1} - {st.session_state.s2}")
 placeholder = st.empty()
 placeholder.image(draw(), width=400)
 
+
 # ---------------- LOOP ----------------
 if st.session_state.running:
 
@@ -208,14 +198,27 @@ if st.session_state.running:
 
     time.sleep(speed)
 
+    # =====================================================
+    # 🏆 WIN CONDITION
+    # =====================================================
     if st.session_state.s1 >= WIN:
-        guardar("WIN")
-        st.success("🏆 Has ganado")
         st.session_state.running = False
 
+        if mode == "Jugador vs IA":
+            st.success("🏆 Has ganado")
+            guardar("WIN")
+        else:
+            st.success("🏆 Ha ganado la izquierda")
+            guardar("WIN")
+
     elif st.session_state.s2 >= WIN:
-        guardar("LOSE")
-        st.error("💀 Has perdido")
         st.session_state.running = False
+
+        if mode == "Jugador vs IA":
+            st.error("💀 Has perdido")
+            guardar("LOSE")
+        else:
+            st.error("💀 Ha ganado la derecha")
+            guardar("LOSE")
 
     st.rerun()
