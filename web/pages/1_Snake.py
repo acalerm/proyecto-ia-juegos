@@ -5,16 +5,12 @@ import time
 import json
 from PIL import Image, ImageDraw
 
-from utils.session import get_user
-
 # =====================================================
 # CONFIG
 # =====================================================
 
 st.set_page_config(page_title="Snake IA", layout="wide")
-st.title("🐍 Snake IA (SARSA - Replay estable)")
-
-user = get_user()
+st.title("🐍 Snake IA (SARSA - versión estable)")
 
 # =====================================================
 # STATE
@@ -36,6 +32,12 @@ modo = st.selectbox("Modo", [
     "Ver Q-Table",
     "Explicación"
 ])
+
+# =====================================================
+# SPEED CONTROL (NUEVO)
+# =====================================================
+
+speed = st.slider("Velocidad simulación", 0.02, 0.5, 0.15)
 
 # =====================================================
 # ENV
@@ -174,7 +176,7 @@ def draw(snake, food):
     return img
 
 # =====================================================
-# TRAINING (FIX PROGRESO)
+# TRAINING (BAR + FIX)
 # =====================================================
 
 if modo == "Entrenar IA":
@@ -186,6 +188,7 @@ if modo == "Entrenar IA":
         st.session_state.Q = {}
         st.session_state.scores = []
 
+        progress = st.progress(0)
         status = st.empty()
 
         for ep in range(episodes):
@@ -221,10 +224,30 @@ if modo == "Entrenar IA":
             if ep % 200 == 0:
                 status.text(f"Entrenando... {ep}/{episodes}")
 
+            progress.progress((ep + 1) / episodes)
+
+        progress.progress(1.0)
         status.success("✅ Entrenamiento completado")
 
 # =====================================================
-# SIMULACIÓN (REPLAY ESTABLE)
+# GRAPH
+# =====================================================
+
+if modo == "Entrenar IA" and st.session_state.scores:
+
+    import matplotlib.pyplot as plt
+
+    scores = st.session_state.scores
+    media = [np.mean(scores[max(0, i-50):i+1]) for i in range(len(scores))]
+
+    fig, ax = plt.subplots()
+    ax.plot(scores, alpha=0.3)
+    ax.plot(media)
+
+    st.pyplot(fig)
+
+# =====================================================
+# SIMULATION (REPLAY FIX + SPEED CONTROL)
 # =====================================================
 
 if modo == "Simulación IA":
@@ -236,10 +259,6 @@ if modo == "Simulación IA":
 
         frames = []
         score = 0
-
-        # ===============================
-        # 1. SIMULACIÓN (SIN UI)
-        # ===============================
 
         for _ in range(200):
 
@@ -262,34 +281,36 @@ if modo == "Simulación IA":
             if done:
                 break
 
-        # ===============================
-        # 2. REPLAY VISUAL
-        # ===============================
-
         placeholder = st.empty()
 
         for s_frame, f_frame in frames:
 
             placeholder.image(draw(s_frame, f_frame), width=360)
 
-            time.sleep(1.0)  # 🔥 lento para ver bien (debug)
+            time.sleep(speed)
 
         st.success(f"💀 Score: {score}")
 
 # =====================================================
-# Q-TABLE
+# Q-TABLE (RESTORED DOWNLOAD BUTTON)
 # =====================================================
 
 if modo == "Ver Q-Table":
 
     Q = st.session_state.Q
 
-    st.write(f"Estados: {len(Q)}")
+    st.write(f"Estados aprendidos: {len(Q)}")
 
     st.json({str(k): v for k, v in list(Q.items())[:20]})
 
+    st.download_button(
+        "⬇️ Descargar Q-Table",
+        data=json.dumps({str(k): v for k, v in Q.items()}),
+        file_name="snake_qtable.json"
+    )
+
 # =====================================================
-# EXPLICACIÓN
+# EXPLANATION
 # =====================================================
 
 if modo == "Explicación":
@@ -297,8 +318,8 @@ if modo == "Explicación":
     st.markdown("""
 ## 🧠 Snake IA (SARSA)
 
-- Entrenamiento offline (sin render)
-- Simulación con replay de frames
-- Evita problemas de Streamlit en tiempo real
-- Aprendizaje mediante Q-table (SARSA)
+- Entrenamiento con SARSA
+- Q-table basada en estados discretos
+- Simulación por replay (tipo GridWorld)
+- Control de velocidad ajustable
 """)
