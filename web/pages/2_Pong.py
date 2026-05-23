@@ -24,7 +24,7 @@ if "ball" not in st.session_state:
     st.session_state.running = False
 
 
-# ---------------- GUARDAR ----------------
+# ---------------- SAVE ----------------
 def guardar(resultado):
     if user:
         supabase.table("pong_stats").insert({
@@ -36,7 +36,7 @@ def guardar(resultado):
         }).execute()
 
 
-# ---------------- CONTROLES ----------------
+# ---------------- CONTROLS ----------------
 col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
@@ -69,11 +69,10 @@ with col5:
         st.session_state.running = False
 
 
-# limitar paddle
 st.session_state.player = max(0, min(150, st.session_state.player))
 
 # ---------------- SPEED ----------------
-speed = st.slider("Velocidad del juego", 0.01, 0.5, 0.1)
+speed = st.slider("Velocidad del juego", 0.01, 0.3, 0.08)
 
 # ---------------- STEP ----------------
 def step():
@@ -84,7 +83,6 @@ def step():
     x += vx
     y += vy
 
-    # rebote paredes
     if y <= 0 or y >= 190:
         vy *= -1
 
@@ -96,12 +94,12 @@ def step():
 
     st.session_state.ai = max(0, min(150, st.session_state.ai))
 
-    # colisión jugador
+    # player collision
     if x <= 20 and st.session_state.player <= y <= st.session_state.player + 50:
         vx *= -1
         x = 20
 
-    # colisión IA
+    # ai collision
     if x >= 380 and st.session_state.ai <= y <= st.session_state.ai + 50:
         vx *= -1
         x = 380
@@ -128,7 +126,6 @@ def draw():
     x, y = st.session_state.ball
 
     d.ellipse([x, y, x+10, y+10], fill=(255, 255, 255))
-
     d.rectangle([10, st.session_state.player, 20, st.session_state.player+50], fill=(0, 255, 0))
     d.rectangle([380, st.session_state.ai, 390, st.session_state.ai+50], fill=(255, 0, 0))
 
@@ -141,7 +138,7 @@ st.write(f"{st.session_state.s1} - {st.session_state.s2}")
 placeholder = st.empty()
 placeholder.image(draw(), width=400)
 
-# ---------------- LOOP ----------------
+# ---------------- LOOP (ESTILO SNAKE) ----------------
 if st.session_state.running:
 
     step()
@@ -158,3 +155,5 @@ if st.session_state.running:
         guardar("LOSE")
         st.error("💀 Has perdido")
         st.session_state.running = False
+
+    st.rerun()
