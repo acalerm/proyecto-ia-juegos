@@ -18,6 +18,13 @@ mode = st.selectbox("Modo", [
     "IA vs Automático"
 ])
 
+difficulty = None
+if mode == "IA vs Automático":
+    difficulty = st.selectbox("Dificultad", [
+        "Fácil",
+        "Avanzado"
+    ])
+
 # ---------------- INIT ----------------
 if "ball" not in st.session_state:
     st.session_state.ball = [200, 100]
@@ -28,6 +35,9 @@ if "ball" not in st.session_state:
     st.session_state.s1 = 0
     st.session_state.s2 = 0
     st.session_state.running = False
+
+if "ai_dir" not in st.session_state:
+    st.session_state.ai_dir = 2
 
 
 # ---------------- SAVE ----------------
@@ -73,6 +83,7 @@ with col5:
         st.session_state.s1 = 0
         st.session_state.s2 = 0
         st.session_state.running = False
+        st.session_state.ai_dir = 2
 
 
 st.session_state.player = max(0, min(150, st.session_state.player))
@@ -90,26 +101,33 @@ def step():
     x += vx
     y += vy
 
-    # rebote paredes
+    # rebote arriba/abajo
     if y <= 0 or y >= 190:
         vy *= -1
 
     # =====================================================
-    # 🟢 PLAYER / IA
+    # 🟢 PLAYER (IA o jugador según modo)
     # =====================================================
     if mode == "Jugador vs IA":
-        # IA clásica (la que ya tenías)
         if y > st.session_state.player:
             st.session_state.player += 3
         else:
             st.session_state.player -= 3
 
     elif mode == "IA vs Automático":
-        # jugador también es IA (misma lógica o mejorada)
-        if y > st.session_state.player:
-            st.session_state.player += 4
+        if difficulty == "Avanzado":
+            if y > st.session_state.player:
+                st.session_state.player += 4
+            else:
+                st.session_state.player -= 4
         else:
-            st.session_state.player -= 4
+            # fácil: movimiento básico arriba/abajo
+            st.session_state.player += st.session_state.ai_dir
+
+            if st.session_state.player <= 0:
+                st.session_state.ai_dir = 2
+            elif st.session_state.player >= 150:
+                st.session_state.ai_dir = -2
 
     st.session_state.player = max(0, min(150, st.session_state.player))
 
@@ -123,11 +141,19 @@ def step():
             st.session_state.ai -= 3
 
     elif mode == "IA vs Automático":
-        # automático simple (menos preciso = partidas cortas)
-        if y > st.session_state.ai:
-            st.session_state.ai += 2
+        if difficulty == "Avanzado":
+            if y > st.session_state.ai:
+                st.session_state.ai += 2
+            else:
+                st.session_state.ai -= 2
         else:
-            st.session_state.ai -= 2
+            # fácil: movimiento aleatorio controlado
+            st.session_state.ai += st.session_state.ai_dir
+
+            if st.session_state.ai <= 0:
+                st.session_state.ai_dir = 2
+            elif st.session_state.ai >= 150:
+                st.session_state.ai_dir = -2
 
     st.session_state.ai = max(0, min(150, st.session_state.ai))
 
@@ -162,7 +188,6 @@ def draw():
     x, y = st.session_state.ball
 
     d.ellipse([x, y, x+10, y+10], fill=(255, 255, 255))
-
     d.rectangle([10, st.session_state.player, 20, st.session_state.player+50], fill=(0, 255, 0))
     d.rectangle([380, st.session_state.ai, 390, st.session_state.ai+50], fill=(255, 0, 0))
 
