@@ -39,6 +39,9 @@ if "ball" not in st.session_state:
 if "ai_dir" not in st.session_state:
     st.session_state.ai_dir = 2
 
+if "result" not in st.session_state:
+    st.session_state.result = None
+
 
 # ---------------- SAVE ----------------
 def guardar(resultado):
@@ -58,6 +61,7 @@ col1, col2, col3, col4, col5 = st.columns(5)
 with col1:
     if st.button("▶️ Start"):
         st.session_state.running = True
+        st.session_state.result = None  # reset mensaje
 
 with col2:
     if st.button("⏸ Stop"):
@@ -84,6 +88,7 @@ with col5:
         st.session_state.s2 = 0
         st.session_state.running = False
         st.session_state.ai_dir = 2
+        st.session_state.result = None
 
 
 st.session_state.player = max(0, min(150, st.session_state.player))
@@ -101,17 +106,11 @@ def step():
     x += vx
     y += vy
 
-    # rebote arriba/abajo
     if y <= 0 or y >= 190:
         vy *= -1
 
-    # =====================================================
-    # 🟢 PALA IZQUIERDA
-    # =====================================================
-    if mode == "Jugador vs IA":
-        pass  # jugador manual
-
-    elif mode == "IA vs Automático":
+    # ---------------- LEFT PADDLE ----------------
+    if mode == "IA vs Automático":
         if y > st.session_state.player:
             st.session_state.player += 3
         else:
@@ -119,9 +118,7 @@ def step():
 
     st.session_state.player = max(0, min(150, st.session_state.player))
 
-    # =====================================================
-    # 🔴 PALA DERECHA
-    # =====================================================
+    # ---------------- RIGHT PADDLE ----------------
     if mode == "Jugador vs IA":
         if y > st.session_state.ai:
             st.session_state.ai += 3
@@ -135,7 +132,6 @@ def step():
                 st.session_state.ai += 2
             else:
                 st.session_state.ai -= 2
-
         else:
             st.session_state.ai += st.session_state.ai_dir
 
@@ -186,6 +182,20 @@ def draw():
 # ---------------- UI ----------------
 st.write(f"{st.session_state.s1} - {st.session_state.s2}")
 
+# 🏆 MENSAJE PERSISTENTE (FIX REAL)
+if st.session_state.result == "WIN":
+    st.success("🏆 Has ganado")
+
+elif st.session_state.result == "LOSE":
+    st.error("💀 Has perdido")
+
+elif st.session_state.result == "LEFT_WIN":
+    st.success("🏆 Ha ganado la izquierda")
+
+elif st.session_state.result == "RIGHT_WIN":
+    st.error("💀 Ha ganado la derecha")
+
+
 placeholder = st.empty()
 placeholder.image(draw(), width=400)
 
@@ -198,27 +208,25 @@ if st.session_state.running:
 
     time.sleep(speed)
 
-    # =====================================================
-    # 🏆 WIN CONDITION
-    # =====================================================
+    # ---------------- WIN CONDITION ----------------
     if st.session_state.s1 >= WIN:
         st.session_state.running = False
 
         if mode == "Jugador vs IA":
-            st.success("🏆 Has ganado")
+            st.session_state.result = "WIN"
             guardar("WIN")
         else:
-            st.success("🏆 Ha ganado la izquierda")
+            st.session_state.result = "LEFT_WIN"
             guardar("WIN")
 
     elif st.session_state.s2 >= WIN:
         st.session_state.running = False
 
         if mode == "Jugador vs IA":
-            st.error("💀 Has perdido")
+            st.session_state.result = "LOSE"
             guardar("LOSE")
         else:
-            st.error("💀 Ha ganado la derecha")
+            st.session_state.result = "RIGHT_WIN"
             guardar("LOSE")
 
     st.rerun()
