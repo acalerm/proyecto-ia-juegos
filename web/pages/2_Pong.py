@@ -6,7 +6,7 @@ from utils.supabase_client import supabase
 from utils.session import get_user
 
 st.set_page_config(page_title="Pong IA", layout="wide")
-st.title("🏓 Pong")
+st.title("🏓 Pong IA")
 
 user = get_user()
 
@@ -36,8 +36,8 @@ def guardar(resultado):
         }).execute()
 
 
-# ---------------- CONTROLS ----------------
-col1, col2, col3, col4, col5, col6 = st.columns(6)
+# ---------------- CONTROLES ----------------
+col1, col2, col3, col4, col5 = st.columns(5)
 
 with col1:
     if st.button("▶️ Start"):
@@ -68,14 +68,12 @@ with col5:
         st.session_state.s2 = 0
         st.session_state.running = False
 
-with col6:
-    if st.button("🎮 Simulación"):
-        st.session_state.running = False
-        st.session_state.simulate = True
 
-
+# limitar paddle
 st.session_state.player = max(0, min(150, st.session_state.player))
 
+# ---------------- SPEED ----------------
+speed = st.slider("Velocidad del juego", 0.01, 0.5, 0.1)
 
 # ---------------- STEP ----------------
 def step():
@@ -86,6 +84,7 @@ def step():
     x += vx
     y += vy
 
+    # rebote paredes
     if y <= 0 or y >= 190:
         vy *= -1
 
@@ -97,17 +96,17 @@ def step():
 
     st.session_state.ai = max(0, min(150, st.session_state.ai))
 
-    # player collision
+    # colisión jugador
     if x <= 20 and st.session_state.player <= y <= st.session_state.player + 50:
         vx *= -1
         x = 20
 
-    # ai collision
+    # colisión IA
     if x >= 380 and st.session_state.ai <= y <= st.session_state.ai + 50:
         vx *= -1
         x = 380
 
-    # score
+    # scoring
     if x < 0:
         st.session_state.s2 += 1
         x, y = 200, 100
@@ -142,53 +141,20 @@ st.write(f"{st.session_state.s1} - {st.session_state.s2}")
 placeholder = st.empty()
 placeholder.image(draw(), width=400)
 
-# =====================================================
-# SIMULATION MODE (NUEVO CONTROLADO)
-# =====================================================
+# ---------------- LOOP ----------------
+if st.session_state.running:
 
-if "simulate" not in st.session_state:
-    st.session_state.simulate = False
+    step()
+    placeholder.image(draw(), width=400)
 
+    time.sleep(speed)
 
-if st.session_state.simulate:
+    if st.session_state.s1 >= WIN:
+        guardar("WIN")
+        st.success("🏆 Has ganado")
+        st.session_state.running = False
 
-    speed = st.slider("Velocidad del juego", 0.01, 0.5, 0.1)
-
-    if st.button("▶ Iniciar simulación"):
-        st.session_state.simulate_running = True
-
-    if st.button("⏹ Parar simulación"):
-        st.session_state.simulate_running = False
-
-    if st.button("🔄 Reset simulación"):
-        st.session_state.ball = [200, 100]
-        st.session_state.vx = 4
-        st.session_state.vy = 3
-        st.session_state.player = 80
-        st.session_state.ai = 80
-        st.session_state.s1 = 0
-        st.session_state.s2 = 0
-        st.session_state.simulate_running = False
-
-
-# ---------------- LOOP SIMULACIÓN ----------------
-if st.session_state.get("simulate_running", False):
-
-    for _ in range(2000):
-
-        step()
-        placeholder.image(draw(), width=400)
-
-        time.sleep(speed)
-
-        if st.session_state.s1 >= WIN:
-            guardar("WIN")
-            st.success("🏆 Has ganado")
-            st.session_state.simulate_running = False
-            break
-
-        if st.session_state.s2 >= WIN:
-            guardar("LOSE")
-            st.error("💀 Has perdido")
-            st.session_state.simulate_running = False
-            break
+    elif st.session_state.s2 >= WIN:
+        guardar("LOSE")
+        st.error("💀 Has perdido")
+        st.session_state.running = False
