@@ -22,41 +22,59 @@ st.divider()
 st.header("📚 ¿En qué consiste este proyecto?")
 
 st.write("""
-Este proyecto demuestra el uso de Inteligencia Artificial en videojuegos mediante distintos enfoques:
+Este proyecto demuestra diferentes aplicaciones de Inteligencia Artificial en videojuegos utilizando múltiples enfoques y algoritmos de decisión.
 
-- 🐍 Snake → Aprendizaje por refuerzo (SARSA y Q-Learning)
+Los juegos implementados actualmente son:
+
+- 🐍 Snake → Aprendizaje por refuerzo mediante SARSA
+- 🏓 Pong → Aprendizaje por refuerzo mediante Q-Learning
+- 🟦 GridWorld → Comparación entre SARSA y Q-Learning
 - ♟️ Ajedrez → Algoritmo Minimax
+- 🃏 Blackjack → IA basada en reglas (Rule-Based AI)
 
-El objetivo es comparar diferentes técnicas de IA y observar cómo aprenden o toman decisiones.
+El objetivo principal es comparar distintos tipos de inteligencia artificial, analizando cómo aprenden, toman decisiones y se comportan en diferentes entornos de juego.
 """)
 
 # 🤖 IA usada
 st.header("🤖 Tipos de IA utilizados")
 
 st.write("""
-- **SARSA**: aprende en función de la acción que realmente ejecuta.
-- **Q-Learning**: aprende la mejor acción posible en cada estado.
-- **Minimax**: evalúa posibles jugadas futuras para tomar la mejor decisión.
+- **SARSA**: algoritmo de aprendizaje por refuerzo que aprende en función de las acciones realmente ejecutadas.
+- **Q-Learning**: algoritmo de aprendizaje por refuerzo que aprende la mejor acción posible para cada estado.
+- **Minimax**: algoritmo de búsqueda utilizado en juegos de estrategia para evaluar posibles movimientos futuros.
+- **Rule-Based AI**: inteligencia artificial basada en reglas predefinidas y decisiones heurísticas.
 """)
 
-# 🎮 cómo usar
-st.header("🎮 ¿Cómo usar la aplicación?")
+# 🧪 funcionalidades
+st.header("🧪 Funcionalidades del proyecto")
 
 st.write("""
-1. Puedes jugar o entrenar IA sin iniciar sesión.
-2. Si inicias sesión, se guardarán tus estadísticas.
-3. Explora:
-   - 🐍 Snake → entrenar y ver IA
-   - ♟️ Ajedrez → jugar contra IA
-   - 📊 Estadísticas → ver resultados
+La aplicación permite explorar distintos sistemas de inteligencia artificial aplicados a videojuegos interactivos.
+
+Entre las funcionalidades disponibles se incluyen:
+
+- 🎮 Jugar manualmente contra distintas IA
+- 🤖 Observar el comportamiento de algoritmos de aprendizaje
+- 📊 Consultar estadísticas de partidas
+- 👤 Sistema de autenticación y perfiles de usuario
+- ☁️ Almacenamiento de datos mediante Supabase
+- 🌐 Interfaz web desarrollada con Streamlit
+
+Cada juego implementa un enfoque de IA diferente para mostrar cómo varían las estrategias y métodos de decisión según el entorno.
 """)
 
 st.divider()
 
-# 🚀 navegación sugerida
-st.subheader("👉 Empieza por:")
+# 🎯 objetivos
+st.subheader("🎯 Objetivos del proyecto")
+
 st.write("""
-- Entrenar la IA de Snake
-- Jugar una partida de ajedrez
-- Revisar estadísticas (si has iniciado sesión)
+Los principales objetivos de este proyecto son:
+
+- Comprender diferentes técnicas de Inteligencia Artificial
+- Aplicar algoritmos de aprendizaje y toma de decisiones en videojuegos
+- Comparar distintos modelos de IA en entornos interactivos
+- Desarrollar una aplicación web funcional utilizando Python y Streamlit
+- Integrar almacenamiento y gestión de datos mediante Supabase
+- Crear una plataforma visual e interactiva orientada al aprendizaje y experimentación
 """)
