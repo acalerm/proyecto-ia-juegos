@@ -49,7 +49,6 @@ def guardar(resultado):
         supabase.table("pong_stats").insert({
             "user_id": user.id,
             "display_name": user.user_metadata.get("display_name"),
-            "mode": mode,   # ✅ FIX: ahora se guarda el modo
             "result": resultado,
             "score_player": st.session_state.s1,
             "score_ai": st.session_state.s2
@@ -110,7 +109,7 @@ def step():
     if y <= 0 or y >= 190:
         vy *= -1
 
-    # LEFT PADDLE AI
+    # LEFT PADDLE
     if mode == "IA vs Automático":
         if y > st.session_state.player:
             st.session_state.player += 3
@@ -238,16 +237,15 @@ st.write("""
 Este proyecto implementa un juego de Pong con distintos modos de comportamiento para comparar inteligencia artificial y sistemas automáticos.
 
 ### 🧠 Modos disponibles
-
-- **Jugador vs IA**: jugador contra IA simple.
-- **IA vs Automático**: comportamiento automático con dos niveles de dificultad.
+- Jugador vs IA
+- IA vs Automático
 
 ### 🎯 Objetivo
 Llegar a 5 puntos antes que el rival.
 
 ### 🤖 IA
-La IA sigue la posición de la bola mediante reglas simples, sin aprendizaje.
+Basada en reglas simples siguiendo la posición de la bola.
 
 ### 📊 Propósito
-Comparar comportamientos simples vs IA basada en reglas.
+Comparar comportamientos simples vs IA.
 """)
