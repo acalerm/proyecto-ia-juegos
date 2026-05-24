@@ -3,13 +3,13 @@ import numpy as np
 import random
 import time
 from PIL import Image, ImageDraw, ImageFont
+import matplotlib.pyplot as plt
 
 from utils.supabase_client import supabase
 from utils.session import get_user
 
-st.set_page_config(page_title="GridWorld IA", layout="centered")
-
-st.title("🤖 GridWorld IA")
+st.set_page_config(page_title="GridWorld IA PRO FIX", layout="centered")
+st.title("🤖 GridWorld IA PRO (SARSA vs Q-Learning)")
 
 user = get_user()
 
@@ -32,103 +32,57 @@ if "results" not in st.session_state:
     st.session_state.results = {}
 
 # =========================================================
-# MAPAS (NUEVO SISTEMA GRID)
+# 🧱 MAPAS (CORREGIDOS BIEN BALANCEADOS)
 # =========================================================
 def generate_map(difficulty):
 
+    agent = (0, 0)
+    goal = (7, 7)
+
+    # 🟢 FÁCIL: dos rutas claras (segura izquierda / riesgo centro)
     if difficulty == "Fácil":
-
-        grid = [
-            ["S", " ", " ", " ", " ", " ", " ", " "],
-            [" ", " ", " ", "█", "█", "█", " ", " "],
-            [" ", " ", " ", " ", " ", "█", " ", " "],
-            [" ", " ", " ", " ", " ", "█", " ", " "],
-            [" ", "█", "█", "█", " ", " ", " ", " "],
-            [" ", " ", " ", "█", " ", " ", " ", " "],
-            [" ", " ", " ", "█", " ", "█", "█", "█"],
-            [" ", " ", " ", " ", " ", " ", " ", "G"]
+        walls = [
+            (1,2),(2,2),
+            (3,1),(3,2),
+            (4,4),
+            (5,5)
+        ]
+        traps = [
+            (2,4),(3,4),(4,2)
         ]
 
+    # 🟡 MEDIO: ruta segura borde + ruta corta con trampas opcionales
     elif difficulty == "Media":
-
-        grid = [
-            ["S", " ", " ", "█", " ", " ", " ", " "],
-            [" ", "█", " ", "█", " ", "█", "█", " "],
-            [" ", "█", " ", " ", " ", "█", " ", " "],
-            [" ", "█", "█", "█", " ", "█", "T", " "],
-            [" ", " ", " ", "█", " ", "█", "█", "█"],
-            ["█", "█", " ", " ", " ", " ", " ", " "],
-            [" ", " ", " ", "█", "█", "█", "█", " "],
-            [" ", "█", " ", " ", " ", " ", " ", "G"]
+        walls = [
+            (1,1),(1,2),(1,3),
+            (2,3),(3,3),
+            (4,1),(4,2),
+            (5,4),(5,5),
+            (6,6)
+        ]
+        traps = [
+            (2,5),(3,5),
+            (4,3),
+            (5,2)
         ]
 
+    # 🔴 DIFÍCIL: ruta segura larga + atajo peligroso con trampas
     else:
-
-        grid = [
-            ["S", " ", "█", " ", " ", " ", "█", " "],
-            [" ", " ", "█", " ", "█", " ", "█", " "],
-            ["█", " ", "█", " ", "█", " ", " ", " "],
-            ["█", " ", " ", " ", "█", "█", "█", "█"],
-            ["█", "█", "█", "T", " ", "T", " ", " "],
-            [" ", " ", "█", "█", " ", "█", "█", " "],
-            [" ", " ", " ", " ", " ", "█", " ", " "],
-            ["█", "█", "█", "█", "█", "█", " ", "G"]
+        walls = [
+            (1,1),(1,2),
+            (2,2),(3,2),
+            (3,3),
+            (4,3),(5,3),
+            (5,5),(6,5)
         ]
-
-    agent = None
-    goal = None
-    walls = []
-    traps = []
-
-    for y in range(GRID):
-        for x in range(GRID):
-
-            cell = grid[y][x]
-
-            if cell == "S":
-                agent = (x, y)
-
-            elif cell == "G":
-                goal = (x, y)
-
-            elif cell == "█":
-                walls.append((x, y))
-
-            elif cell == "T":
-                traps.append((x, y))
+        traps = [
+            (2,4),(3,4),
+            (4,4),
+            (5,2),(6,2)
+        ]
 
     return agent, goal, walls, traps
 
-# =========================================================
-# VISIÓN
-# =========================================================
-def get_vision(agent, walls, traps, goal):
-
-    ax, ay = agent
-    v = []
-
-    for dy in [-1,0,1]:
-        for dx in [-1,0,1]:
-
-            x = ax + dx
-            y = ay + dy
-
-            if x < 0 or x >= GRID or y < 0 or y >= GRID:
-                v.append(-1)
-
-            elif (x,y) == goal:
-                v.append(3)
-
-            elif (x,y) in walls:
-                v.append(1)
-
-            elif (x,y) in traps:
-                v.append(2)
-
-            else:
-                v.append(0)
-
-    return tuple(v)
 
 # =========================================================
 # STEP
@@ -137,22 +91,18 @@ def step(agent, action, goal, walls, traps):
 
     x, y = agent
 
-    if action == 0:
-        y -= 1
-    elif action == 1:
-        x += 1
-    elif action == 2:
-        y += 1
-    elif action == 3:
-        x -= 1
+    if action == 0: y -= 1
+    elif action == 1: x += 1
+    elif action == 2: y += 1
+    elif action == 3: x -= 1
 
     new = (x, y)
 
     if x < 0 or x >= GRID or y < 0 or y >= GRID:
-        return agent, -10, False
+        return agent, -5, False
 
     if new in walls:
-        return agent, -15, False
+        return agent, -10, False
 
     if new in traps:
         return new, -20, False
@@ -160,80 +110,12 @@ def step(agent, action, goal, walls, traps):
     if new == goal:
         return new, 100, True
 
-    return new, -1, False
+    # reward shaping
+    d1 = abs(agent[0]-goal[0]) + abs(agent[1]-goal[1])
+    d2 = abs(new[0]-goal[0]) + abs(new[1]-goal[1])
 
-# =========================================================
-# RL
-# =========================================================
-def state(v, gdir):
-    return v + gdir
+    return new, -1 + (2 if d2 < d1 else -1), False
 
-def choose(Q, s):
-
-    if s not in Q:
-        Q[s] = [0,0,0,0]
-
-    if random.random() < 0.1:
-        return random.randint(0,3)
-
-    return int(np.argmax(Q[s]))
-
-def update(Q, s, a, r, ns, na, algo):
-
-    alpha = 0.1
-    gamma = 0.9
-
-    if s not in Q:
-        Q[s] = [0,0,0,0]
-    if ns not in Q:
-        Q[ns] = [0,0,0,0]
-
-    if algo == "SARSA":
-        Q[s][a] += alpha * (r + gamma * Q[ns][na] - Q[s][a])
-    else:
-        Q[s][a] += alpha * (r + gamma * np.max(Q[ns]) - Q[s][a])
-
-# =========================================================
-# TRAIN
-# =========================================================
-def train(algo, difficulty, episodes):
-
-    Q = st.session_state.Q_sarsa if algo == "SARSA" else st.session_state.Q_ql
-
-    for _ in range(episodes):
-
-        a, g, w, t = generate_map(difficulty)
-
-        v = get_vision(a, w, t, g)
-
-        gdir = (np.sign(g[0]-a[0]), np.sign(g[1]-a[1]))
-
-        s = state(v, gdir)
-
-        act = choose(Q, s)
-
-        done = False
-
-        for _ in range(120):
-
-            na, r, done = step(a, act, g, w, t)
-
-            v2 = get_vision(na, w, t, g)
-
-            gdir2 = (np.sign(g[0]-na[0]), np.sign(g[1]-na[1]))
-
-            ns = state(v2, gdir2)
-
-            nxt = choose(Q, ns)
-
-            update(Q, s, act, r, ns, nxt, algo)
-
-            a = na
-            s = ns
-            act = nxt
-
-            if done:
-                break
 
 # =========================================================
 # DRAW
@@ -245,37 +127,71 @@ def draw(a, g, w, t):
 
     for x in range(GRID):
         for y in range(GRID):
-            d.rectangle([x*CELL, y*CELL, x*CELL+CELL, y*CELL+CELL], outline=(80,80,80))
+            d.rectangle(
+                [x*CELL,y*CELL,x*CELL+CELL,y*CELL+CELL],
+                outline=(80,80,80)
+            )
 
     for ob in w:
-        d.rectangle([ob[0]*CELL, ob[1]*CELL, ob[0]*CELL+CELL, ob[1]*CELL+CELL], fill=(200,50,50))
+        d.rectangle(
+            [ob[0]*CELL, ob[1]*CELL, ob[0]*CELL+CELL, ob[1]*CELL+CELL],
+            fill=(200,50,50)
+        )
 
     for tr in t:
-        d.rectangle([tr[0]*CELL+15, tr[1]*CELL+15, tr[0]*CELL+CELL-15, tr[1]*CELL+CELL-15], fill=(255,140,0))
+        d.rectangle(
+            [tr[0]*CELL, tr[1]*CELL, tr[0]*CELL+CELL, tr[1]*CELL+CELL],
+            fill=(255,140,0)
+        )
 
-    d.ellipse([g[0]*CELL+20, g[1]*CELL+20, g[0]*CELL+CELL-20, g[1]*CELL+CELL-20], fill=(0,255,0))
-    d.ellipse([a[0]*CELL+20, a[1]*CELL+20, a[0]*CELL+CELL-20, a[1]*CELL+CELL-20], fill=(50,150,255))
+    d.ellipse(
+        [g[0]*CELL+20, g[1]*CELL+20, g[0]*CELL+CELL-20, g[1]*CELL+CELL-20],
+        fill=(0,255,0)
+    )
+
+    d.ellipse(
+        [a[0]*CELL+20, a[1]*CELL+20, a[0]*CELL+CELL-20, a[1]*CELL+CELL-20],
+        fill=(50,150,255)
+    )
 
     return img
+
 
 # =========================================================
 # UI
 # =========================================================
 modo = st.selectbox("Modo", ["Entrenar", "Comparación visual", "Explicación"])
 
+
+# =========================================================
+# ENTRENAMIENTO
+# =========================================================
 if modo == "Entrenar":
 
     episodes = st.slider("Episodios", 1000, 20000, 5000, step=1000)
 
     if st.button("Entrenar IA"):
 
+        st.write("Entrenando SARSA y Q-Learning...")
+
+        results = {}
+
         for d in ["Fácil", "Media", "Difícil"]:
-            train("SARSA", d, episodes)
-            train("Q-Learning", d, episodes)
 
-        st.success("Entrenamiento completado")
+            s = train("SARSA", d, episodes)
+            q = train("Q-Learning", d, episodes)
 
-elif modo == "Comparación visual":
+            results[d] = {"SARSA": s, "Q": q}
+
+        st.session_state.results = results
+
+        st.success("Entrenamiento completo")
+
+
+# =========================================================
+# COMPARACIÓN
+# =========================================================
+if modo == "Comparación visual":
 
     difficulty = st.selectbox("Dificultad", ["Fácil", "Media", "Difícil"])
 
@@ -287,15 +203,14 @@ elif modo == "Comparación visual":
         Q1 = st.session_state.Q_sarsa
         Q2 = st.session_state.Q_ql
 
-        col1, col2 = st.columns(2)
-
+        col1,col2 = st.columns(2)
         p1 = col1.empty()
         p2 = col2.empty()
 
         done1 = False
         done2 = False
 
-        for _ in range(120):
+        for _ in range(80):
 
             if not done1:
                 v = get_vision(a1,w1,t1,g1)
@@ -314,14 +229,4 @@ elif modo == "Comparación visual":
             p1.image(draw(a1,g1,w1,t1))
             p2.image(draw(a2,g2,w2,t2))
 
-            time.sleep(0.3)
-
-else:
-
-    st.markdown("""
-    ## 📘 Explicación
-
-    - SARSA: más conservador
-    - Q-Learning: más agresivo
-    - Los mapas están diseñados para forzar decisiones distintas
-    """)
+            time.sleep(0.5)
