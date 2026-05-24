@@ -2,8 +2,7 @@ import streamlit as st
 import numpy as np
 import random
 import time
-from PIL import Image, ImageDraw, ImageFont
-import matplotlib.pyplot as plt
+from PIL import Image, ImageDraw
 
 from utils.supabase_client import supabase
 from utils.session import get_user
@@ -32,48 +31,49 @@ if "results" not in st.session_state:
     st.session_state.results = {}
 
 # =========================================================
-# 🧱 MAPAS (CORREGIDOS BIEN BALANCEADOS)
+# 🧱 MAPAS CORREGIDOS
 # =========================================================
 def generate_map(difficulty):
 
     agent = (0, 0)
     goal = (7, 7)
 
-    # 🟢 FÁCIL: dos rutas claras (segura izquierda / riesgo centro)
+    # 🟢 FÁCIL
     if difficulty == "Fácil":
         walls = [
-            (1,2),(2,2),
-            (3,1),(3,2),
-            (4,4),
-            (5,5)
+            (2,2),(2,3),
+            (3,2),
+            (5,4)
         ]
         traps = [
-            (2,4),(3,4),(4,2)
+            (3,4),(4,4)
         ]
 
-    # 🟡 MEDIO: ruta segura borde + ruta corta con trampas opcionales
+    # 🟡 MEDIO
     elif difficulty == "Media":
         walls = [
             (1,1),(1,2),(1,3),
-            (2,3),(3,3),
+            (2,3),
+            (3,3),
             (4,1),(4,2),
-            (5,4),(5,5),
+            (5,5),
             (6,6)
         ]
         traps = [
             (2,5),(3,5),
             (4,3),
-            (5,2)
+            (5,3)
         ]
 
-    # 🔴 DIFÍCIL: ruta segura larga + atajo peligroso con trampas
+    # 🔴 DIFÍCIL
     else:
         walls = [
             (1,1),(1,2),
             (2,2),(3,2),
             (3,3),
             (4,3),(5,3),
-            (5,5),(6,5)
+            (5,5),
+            (6,5)
         ]
         traps = [
             (2,4),(3,4),
@@ -82,6 +82,84 @@ def generate_map(difficulty):
         ]
 
     return agent, goal, walls, traps
+
+
+# =========================================================
+# 🧠 RL FUNCTIONS
+# =========================================================
+def state(v, gdir):
+    return v + gdir
+
+
+def choose(Q, s):
+    if s not in Q:
+        Q[s] = [0, 0, 0, 0]
+
+    if random.random() < 0.1:
+        return random.randint(0, 3)
+
+    return int(np.argmax(Q[s]))
+
+
+def update(Q, s, a, r, ns, na, algo):
+
+    alpha = 0.1
+    gamma = 0.9
+
+    if s not in Q:
+        Q[s] = [0, 0, 0, 0]
+    if ns not in Q:
+        Q[ns] = [0, 0, 0, 0]
+
+    if algo == "SARSA":
+        Q[s][a] += alpha * (r + gamma * Q[ns][na] - Q[s][a])
+    else:
+        Q[s][a] += alpha * (r + gamma * np.max(Q[ns]) - Q[s][a])
+
+
+def train(algo, difficulty, episodes):
+
+    Q = st.session_state.Q_sarsa if algo == "SARSA" else st.session_state.Q_ql
+
+    rewards = []
+
+    for _ in range(episodes):
+
+        a, g, w, t = generate_map(difficulty)
+
+        v = get_vision(a, w, t, g)
+        gdir = (np.sign(g[0]-a[0]), np.sign(g[1]-a[1]))
+
+        s = state(v, gdir)
+        act = choose(Q, s)
+
+        total = 0
+        done = False
+
+        for _ in range(80):
+
+            na, r, done = step(a, act, g, w, t)
+
+            v2 = get_vision(na, w, t, g)
+            gdir2 = (np.sign(g[0]-na[0]), np.sign(g[1]-na[1]))
+
+            ns = state(v2, gdir2)
+            nxt = choose(Q, ns)
+
+            update(Q, s, act, r, ns, nxt, algo)
+
+            a = na
+            s = ns
+            act = nxt
+
+            total += r
+
+            if done:
+                break
+
+        rewards.append(total)
+
+    return np.mean(rewards)
 
 
 # =========================================================
@@ -110,7 +188,6 @@ def step(agent, action, goal, walls, traps):
     if new == goal:
         return new, 100, True
 
-    # reward shaping
     d1 = abs(agent[0]-goal[0]) + abs(agent[1]-goal[1])
     d2 = abs(new[0]-goal[0]) + abs(new[1]-goal[1])
 
@@ -164,7 +241,7 @@ modo = st.selectbox("Modo", ["Entrenar", "Comparación visual", "Explicación"])
 
 
 # =========================================================
-# ENTRENAMIENTO
+# ENTRENAR
 # =========================================================
 if modo == "Entrenar":
 
