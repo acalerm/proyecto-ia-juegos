@@ -8,7 +8,7 @@ from utils.supabase_client import supabase
 from utils.session import get_user
 
 st.set_page_config(page_title="GridWorld IA PRO FIX", layout="centered")
-st.title("🤖 GridWorld IA PRO (FIXED)")
+st.title("🤖 GridWorld IA PRO (STABLE FIX)")
 
 user = get_user()
 
@@ -31,8 +31,11 @@ if "Q_ql" not in st.session_state:
 if "results" not in st.session_state:
     st.session_state.results = {}
 
+if "visited" not in st.session_state:
+    st.session_state.visited = set()
+
 # =========================================================
-# 🧱 MAPAS (NO MODIFICADOS)
+# 🧱 MAPAS (NO TOCADOS)
 # =========================================================
 
 def parse_grid(grid):
@@ -100,7 +103,7 @@ def generate_map(difficulty):
     return parse_grid(grid_hard)
 
 # =========================================================
-# VISION 3x3
+# VISION
 # =========================================================
 def get_vision(agent, walls, traps, goal):
     ax, ay = agent
@@ -125,7 +128,7 @@ def get_vision(agent, walls, traps, goal):
     return tuple(v)
 
 # =========================================================
-# STEP (CORREGIDO)
+# STEP (CORRECTO)
 # =========================================================
 def step(agent, action, goal, walls, traps):
 
@@ -136,7 +139,6 @@ def step(agent, action, goal, walls, traps):
     elif action == 2: y += 1
     elif action == 3: x -= 1
 
-    # límites primero
     if x < 0 or x >= GRID or y < 0 or y >= GRID:
         return agent, -5, False
 
@@ -159,11 +161,11 @@ def step(agent, action, goal, walls, traps):
 def state(v, gdir):
     return tuple(v) + tuple(gdir)
 
-def choose(Q, s):
+def choose(Q, s, epsilon=0.1):
     if s not in Q:
         Q[s] = [0,0,0,0]
 
-    if random.random() < 0.1:
+    if random.random() < epsilon:
         return random.randint(0,3)
 
     return int(np.argmax(Q[s]))
@@ -184,35 +186,44 @@ def update(Q, s, a, r, ns, na, algo):
         Q[s][a] += alpha * (r + gamma * np.max(Q[ns]) - Q[s][a])
 
 # =========================================================
-# TRAIN (ARREGLADO)
+# TRAIN (FIXED)
 # =========================================================
 def train(algo, difficulty, episodes):
 
     Q = st.session_state.Q_sarsa if algo == "SARSA" else st.session_state.Q_ql
     rewards = []
 
-    for _ in range(episodes):
+    for ep in range(episodes):
 
         start, goal, walls, traps = generate_map(difficulty)
         agent = start
+
+        st.session_state.visited.clear()
 
         v = get_vision(agent, walls, traps, goal)
         gdir = (np.sign(goal[0]-agent[0]), np.sign(goal[1]-agent[1]))
 
         s = state(v, gdir)
-        act = choose(Q, s)
+        act = choose(Q, s, 0.3)
 
         total = 0
+
+        epsilon = max(0.05, 0.3 * (1 - ep / episodes))
 
         for _ in range(80):
 
             new_agent, r, done = step(agent, act, goal, walls, traps)
 
+            # penalización por loops
+            if s in st.session_state.visited:
+                r -= 5
+            st.session_state.visited.add(s)
+
             v2 = get_vision(new_agent, walls, traps, goal)
             gdir2 = (np.sign(goal[0]-new_agent[0]), np.sign(goal[1]-new_agent[1]))
 
             ns = state(v2, gdir2)
-            na = choose(Q, ns)
+            na = choose(Q, ns, epsilon)
 
             update(Q, s, act, r, ns, na, algo)
 
@@ -280,7 +291,7 @@ if modo == "Entrenar":
         st.success("Entrenamiento completo")
 
 # =========================================================
-# COMPARACIÓN (ARREGLADA)
+# COMPARACIÓN (FIX STOP META)
 # =========================================================
 if modo == "Comparación visual":
 
@@ -307,18 +318,21 @@ if modo == "Comparación visual":
             gdir = (np.sign(goal1[0]-a1[0]), np.sign(goal1[1]-a1[1]))
             s = state(v,gdir)
             act = choose(Q1,s)
-            a1,_,_ = step(a1,act,goal1,walls1,traps1)
+            a1,_,done1 = step(a1,act,goal1,walls1,traps1)
 
             v = get_vision(a2,walls2,traps2,goal2)
             gdir = (np.sign(goal2[0]-a2[0]), np.sign(goal2[1]-a2[1]))
             s = state(v,gdir)
             act = choose(Q2,s)
-            a2,_,_ = step(a2,act,goal2,walls2,traps2)
+            a2,_,done2 = step(a2,act,goal2,walls2,traps2)
 
             p1.image(draw(a1,goal1,walls1,traps1))
             p2.image(draw(a2,goal2,walls2,traps2))
 
-            time.sleep(0.4)
+            time.sleep(0.3)
+
+            if done1 and done2:
+                break
 
 # =========================================================
 # EXPLICACIÓN
@@ -327,8 +341,8 @@ if modo == "Explicación":
     st.markdown("""
 ## SARSA vs Q-Learning
 
-- SARSA: más conservador (aprende lo que realmente hace)
-- Q-Learning: más agresivo (aprende el mejor futuro posible)
+- SARSA: aprende lo que hace realmente
+- Q-Learning: aprende la mejor acción futura
 
-Las trampas fuerzan diferencias de estrategia.
+✔ Ahora el entorno es estable y sin loops infinitos
 """)
