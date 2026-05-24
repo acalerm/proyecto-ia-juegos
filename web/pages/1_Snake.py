@@ -24,12 +24,9 @@ if "Q" not in st.session_state:
 if "scores" not in st.session_state:
     st.session_state.scores = []
 
-# 👉 NUEVO: control simulación
-if "last_sim_score" not in st.session_state:
-    st.session_state.last_sim_score = None
-
-if "last_sim_episodes" not in st.session_state:
-    st.session_state.last_sim_episodes = None
+# 🔥 FIX: guardar episodes del entrenamiento
+if "last_episodes" not in st.session_state:
+    st.session_state.last_episodes = 5000
 
 # =====================================================
 # MODE
@@ -91,7 +88,7 @@ def move(snake, direction, action, food):
     return snake, direction, food, reward, done
 
 # =====================================================
-# STATE + SARSA
+# SARSA STATE
 # =====================================================
 
 def get_state(snake, food, direction):
@@ -191,6 +188,9 @@ if modo == "Entrenar IA":
         st.session_state.Q = {}
         st.session_state.scores = []
 
+        # 🔥 FIX: guardar episodes correctamente
+        st.session_state.last_episodes = episodes
+
         progress = st.progress(0)
         status = st.empty()
 
@@ -233,7 +233,7 @@ if modo == "Entrenar IA":
         status.success("✅ Entrenamiento completado")
 
 # =====================================================
-# SIMULATION + BBDD FIX
+# SIMULATION + SUPABASE FIX
 # =====================================================
 
 if modo == "Simulación IA":
@@ -275,7 +275,7 @@ if modo == "Simulación IA":
         st.success(f"💀 Score: {score}")
 
         # =====================================================
-        # 💾 GUARDAR SOLO SIMULACIÓN (FIX)
+        # 💾 GUARDADO CORRECTO
         # =====================================================
 
         if user:
@@ -283,18 +283,12 @@ if modo == "Simulación IA":
             supabase.table("snake_stats").insert({
                 "user_id": user.id,
                 "display_name": getattr(user, "email", "guest"),
-
-                # 🔥 FIX PRINCIPAL
                 "score": score,
-                "episodes": st.slider("Episodios usados (registro)", 1000, 20000, 5000, 1000),
-
-                # opcional si lo mantienes en tabla
-                "max_score": score,
-                "last_score": score
+                "episodes": st.session_state.last_episodes
             }).execute()
 
 # =====================================================
-# GRAPH / Q TABLE / EXPLANATION (SIN CAMBIOS)
+# RESTO SIN CAMBIOS
 # =====================================================
 
 if modo == "Entrenar IA" and st.session_state.scores:
@@ -328,7 +322,7 @@ if modo == "Explicación":
 ## 🧠 Snake IA (SARSA)
 
 - Entrenamiento con SARSA
-- Q-table basada en estados discretos
-- Simulación por replay
-- Guardado en Supabase SOLO en simulación
+- Simulación independiente
+- Guardado SOLO en simulación
+- Episodes persistente del entrenamiento
 """)
