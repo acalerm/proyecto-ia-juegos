@@ -182,7 +182,7 @@ def step(agent, action, goal, walls, traps, algo_mode):
             return new, -45, False
 
         # Q-Learning = agresivo
-        return new, -8, False
+        return new, -7, False
 
     # meta
     if new == goal:
