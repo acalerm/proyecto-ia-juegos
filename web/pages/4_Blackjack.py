@@ -82,7 +82,7 @@ def card_ui(card):
     """
 
 # =====================================================
-# 🛡️ FIX RENDER HAND (IMPORTANTE)
+# 🛡️ RENDER HAND
 # =====================================================
 
 def render_hand(hand):
@@ -124,7 +124,7 @@ def save_game(user, result, player_score, dealer_score, mode):
     }).execute()
 
 # =====================================================
-# 📦 ESTADO SEGURO (FIX CLAVE)
+# 📦 ESTADO
 # =====================================================
 
 st.set_page_config(page_title="Blackjack", layout="centered")
@@ -265,7 +265,7 @@ with col3:
         st.rerun()
 
 # =====================================================
-# 🧾 RESULTADO + GUARDADO
+# 🧾 RESULTADO + SUPABASE
 # =====================================================
 
 if st.session_state.done:
@@ -290,3 +290,54 @@ if st.session_state.done:
         )
 
         st.session_state.saved = True
+
+# =====================================================
+# 📘 EXPLICACIÓN IA (RULE-BASED)
+# =====================================================
+
+if st.session_state.done:
+
+    st.markdown("---")
+    st.header("📘 Explicación de la IA")
+
+    st.markdown("""
+## 🤖 Tipo de IA utilizada: Rule-Based AI
+
+Este Blackjack utiliza una inteligencia artificial basada en reglas fijas.
+
+---
+
+## ⚙️ Funcionamiento
+
+La IA decide entre:
+- HIT (pedir carta)
+- STAND (plantarse)
+
+según su puntuación y la carta del dealer.
+
+---
+
+## 📜 Reglas
+
+- 17 o más → STAND  
+- 11 o menos → HIT  
+- 12–16:
+  - dealer ≥ 7 → HIT  
+  - dealer < 7 → STAND  
+
+---
+
+## 🎯 Objetivo
+
+Maximizar la probabilidad de ganar evitando pasarse de 21.
+
+---
+
+## 🔁 Comparación
+
+| Juego | Tipo de IA |
+|------|-----------|
+| Blackjack | Rule-Based |
+| GridWorld | SARSA / Q-Learning |
+
+""")
