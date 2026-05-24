@@ -9,40 +9,10 @@ import matplotlib.pyplot as plt
 from utils.supabase_client import supabase
 from utils.session import get_user
 
-# =====================================================
-# 👤 USER
-# =====================================================
-
-user = get_user()
-
-# =====================================================
-# 💾 SUPABASE SAVE (SOLO SIMULACIÓN)
-# =====================================================
-
-def save_snake_simulation(user, score):
-    if not user:
-        return
-
-    display_name = None
-
-    if hasattr(user, "user_metadata") and user.user_metadata:
-        display_name = user.user_metadata.get("display_name")
-
-    if not display_name:
-        display_name = getattr(user, "email", "guest")
-
-    supabase.table("snake_stats").insert({
-        "user_id": user.id,
-        "display_name": display_name,
-        "score": int(score)
-    }).execute()
-
-# =====================================================
-# CONFIG
-# =====================================================
-
 st.set_page_config(page_title="Snake IA", layout="wide")
 st.title("🐍 Snake IA (SARSA - versión estable)")
+
+user = get_user()
 
 # =====================================================
 # STATE
@@ -53,6 +23,13 @@ if "Q" not in st.session_state:
 
 if "scores" not in st.session_state:
     st.session_state.scores = []
+
+# 👉 NUEVO: control simulación
+if "last_sim_score" not in st.session_state:
+    st.session_state.last_sim_score = None
+
+if "last_sim_episodes" not in st.session_state:
+    st.session_state.last_sim_episodes = None
 
 # =====================================================
 # MODE
@@ -256,7 +233,7 @@ if modo == "Entrenar IA":
         status.success("✅ Entrenamiento completado")
 
 # =====================================================
-# SIMULATION (GUARDADO AQUÍ)
+# SIMULATION + BBDD FIX
 # =====================================================
 
 if modo == "Simulación IA":
@@ -275,10 +252,7 @@ if modo == "Simulación IA":
 
             state = get_state(snake, food, direction)
 
-            if state not in Q:
-                action = random.randint(0, 2)
-            else:
-                action = int(np.argmax(Q[state]))
+            action = random.randint(0, 2) if state not in Q else int(np.argmax(Q[state]))
 
             snake, direction, food, r, done = move(
                 snake, direction, action, food
@@ -295,22 +269,44 @@ if modo == "Simulación IA":
         placeholder = st.empty()
 
         for s_frame, f_frame in frames:
-
             placeholder.image(draw(s_frame, f_frame), width=360)
-
             time.sleep(speed)
 
         st.success(f"💀 Score: {score}")
 
-        # =================================================
-        # 💾 GUARDA SOLO SIMULACIÓN
-        # =================================================
+        # =====================================================
+        # 💾 GUARDAR SOLO SIMULACIÓN (FIX)
+        # =====================================================
+
         if user:
-            save_snake_simulation(user, score)
+
+            supabase.table("snake_stats").insert({
+                "user_id": user.id,
+                "display_name": getattr(user, "email", "guest"),
+
+                # 🔥 FIX PRINCIPAL
+                "score": score,
+                "episodes": st.slider("Episodios usados (registro)", 1000, 20000, 5000, 1000),
+
+                # opcional si lo mantienes en tabla
+                "max_score": score,
+                "last_score": score
+            }).execute()
 
 # =====================================================
-# Q-TABLE
+# GRAPH / Q TABLE / EXPLANATION (SIN CAMBIOS)
 # =====================================================
+
+if modo == "Entrenar IA" and st.session_state.scores:
+
+    scores = st.session_state.scores
+    media = [np.mean(scores[max(0, i-50):i+1]) for i in range(len(scores))]
+
+    fig, ax = plt.subplots()
+    ax.plot(scores, alpha=0.3)
+    ax.plot(media)
+
+    st.pyplot(fig)
 
 if modo == "Ver Q-Table":
 
@@ -326,23 +322,13 @@ if modo == "Ver Q-Table":
         file_name="snake_qtable.json"
     )
 
-# =====================================================
-# EXPLICACIÓN
-# =====================================================
-
 if modo == "Explicación":
 
     st.markdown("""
 ## 🧠 Snake IA (SARSA)
 
-- Reinforcement Learning
-- Q-learning tabular
-- Estado discreto
-- Exploración epsilon-greedy
-
-## 💾 Base de datos
-
-Se guarda SOLO:
-- score de la simulación
-- usuario
+- Entrenamiento con SARSA
+- Q-table basada en estados discretos
+- Simulación por replay
+- Guardado en Supabase SOLO en simulación
 """)
