@@ -88,7 +88,6 @@ def card_ui(card):
 def render_hand(hand):
     if not isinstance(hand, list):
         return "<div>Sin cartas</div>"
-
     if len(hand) == 0:
         return "<div>Sin cartas</div>"
 
@@ -292,52 +291,53 @@ if st.session_state.done:
         st.session_state.saved = True
 
 # =====================================================
-# 📘 EXPLICACIÓN IA (RULE-BASED)
+# 📘 EXPLICACIÓN (SECCIÓN APARTE)
 # =====================================================
 
-if st.session_state.done:
+st.markdown("---")
+st.header("📘 Explicación del sistema")
 
-    st.markdown("---")
-    st.header("📘 Explicación de la IA")
+st.markdown("""
+## 🤖 Tipo de IA: Rule-Based AI
 
-    st.markdown("""
-## 🤖 Tipo de IA utilizada: Rule-Based AI
-
-Este Blackjack utiliza una inteligencia artificial basada en reglas fijas.
+Este Blackjack usa una IA basada en reglas fijas.
 
 ---
 
-## ⚙️ Funcionamiento
+## ⚙️ Cómo decide
 
-La IA decide entre:
-- HIT (pedir carta)
-- STAND (plantarse)
+La IA evalúa:
+- Su puntuación
+- La carta visible del dealer
 
-según su puntuación y la carta del dealer.
+y aplica reglas fijas.
 
 ---
 
 ## 📜 Reglas
 
-- 17 o más → STAND  
-- 11 o menos → HIT  
+- 17 o más → STAND
+- 11 o menos → HIT
 - 12–16:
-  - dealer ≥ 7 → HIT  
-  - dealer < 7 → STAND  
+  - dealer ≥ 7 → HIT
+  - dealer < 7 → STAND
 
 ---
 
 ## 🎯 Objetivo
 
-Maximizar la probabilidad de ganar evitando pasarse de 21.
+Maximizar probabilidad de ganar evitando pasarse de 21.
 
 ---
 
-## 🔁 Comparación
+## 🧠 Tipo de IA en el proyecto
 
-| Juego | Tipo de IA |
-|------|-----------|
-| Blackjack | Rule-Based |
-| GridWorld | SARSA / Q-Learning |
+- Blackjack → Rule-Based AI
+- GridWorld → Reinforcement Learning (SARSA / Q-Learning)
 
+---
+
+## 📌 Conclusión
+
+Este sistema no aprende, solo ejecuta reglas definidas.
 """)
