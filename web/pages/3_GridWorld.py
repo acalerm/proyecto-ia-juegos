@@ -8,7 +8,7 @@ from utils.supabase_client import supabase
 from utils.session import get_user
 
 st.set_page_config(page_title="GridWorld IA PRO FIX", layout="centered")
-st.title("🤖 GridWorld IA PRO (FINAL FIX)")
+st.title("🤖 GridWorld IA PRO (STABLE FIX)")
 
 user = get_user()
 
@@ -35,14 +35,12 @@ if "visited" not in st.session_state:
     st.session_state.visited = set()
 
 # =========================================================
-# 🧱 MAPAS (SIN CAMBIOS)
+# MAPAS (NO TOCAR)
 # =========================================================
 
 def parse_grid(grid):
-    walls = []
-    traps = []
-    start = None
-    goal = None
+    walls, traps = [], []
+    start, goal = None, None
 
     for y in range(GRID):
         for x in range(GRID):
@@ -92,9 +90,6 @@ grid_hard = [
     [" "," "," ","█"," "," "," ","G"]
 ]
 
-# =========================================================
-# MAP SELECTOR
-# =========================================================
 def generate_map(difficulty):
     if difficulty == "Fácil":
         return parse_grid(grid_easy)
@@ -111,8 +106,7 @@ def get_vision(agent, walls, traps, goal):
 
     for dy in [-1,0,1]:
         for dx in [-1,0,1]:
-            x = ax + dx
-            y = ay + dy
+            x, y = ax + dx, ay + dy
 
             if x < 0 or x >= GRID or y < 0 or y >= GRID:
                 v.append(-1)
@@ -121,14 +115,14 @@ def get_vision(agent, walls, traps, goal):
             elif (x,y) in walls:
                 v.append(1)
             elif (x,y) in traps:
-                v.append(5)   # 🔥 más fuerte para que SARSA lo evite
+                v.append(5)
             else:
                 v.append(0)
 
     return tuple(v)
 
 # =========================================================
-# STEP
+# STEP (MEJORADO REWARD SHAPING)
 # =========================================================
 def step(agent, action, goal, walls, traps):
 
@@ -148,12 +142,20 @@ def step(agent, action, goal, walls, traps):
         return agent, -10, False
 
     if new in traps:
-        return new, -50, False   # 🔥 castigo fuerte
+        return new, -100, False   # 🔥 más castigo real
 
     if new == goal:
         return new, 100, True
 
-    return new, -1, False
+    # 🔥 reward shaping: acercarse a meta
+    old_dist = abs(agent[0]-goal[0]) + abs(agent[1]-goal[1])
+    new_dist = abs(new[0]-goal[0]) + abs(new[1]-goal[1])
+
+    reward = -1
+    if new_dist > old_dist:
+        reward -= 3
+
+    return new, reward, False
 
 # =========================================================
 # RL
@@ -186,14 +188,12 @@ def update(Q, s, a, r, ns, na, algo):
         Q[s][a] += alpha * (r + gamma * np.max(Q[ns]) - Q[s][a])
 
 # =========================================================
-# TRAIN (CON PROGRESS BAR)
+# TRAIN (FIX BAR + ESTABILIDAD)
 # =========================================================
-def train(algo, difficulty, episodes):
+def train(algo, difficulty, episodes, progress):
 
     Q = st.session_state.Q_sarsa if algo == "SARSA" else st.session_state.Q_ql
     rewards = []
-
-    progress = st.progress(0)
 
     for ep in range(episodes):
 
@@ -216,7 +216,7 @@ def train(algo, difficulty, episodes):
             new_agent, r, done = step(agent, act, goal, walls, traps)
 
             if s in st.session_state.visited:
-                r -= 5
+                r -= 10
             st.session_state.visited.add(s)
 
             v2 = get_vision(new_agent, walls, traps, goal)
@@ -237,7 +237,6 @@ def train(algo, difficulty, episodes):
                 break
 
         rewards.append(total)
-
         progress.progress((ep + 1) / episodes)
 
     return np.mean(rewards)
@@ -279,12 +278,14 @@ if modo == "Entrenar":
 
     if st.button("Entrenar IA"):
 
+        progress = st.progress(0)
+
         results = {}
 
         for d in ["Fácil", "Media", "Difícil"]:
 
-            s = train("SARSA", d, episodes)
-            q = train("Q-Learning", d, episodes)
+            s = train("SARSA", d, episodes, progress)
+            q = train("Q-Learning", d, episodes, progress)
 
             results[d] = {"SARSA": s, "Q": q}
 
@@ -336,7 +337,6 @@ if modo == "Comparación visual":
 
             time.sleep(0.3)
 
-            # 🔥 FIX: congelar en meta
             if done1:
                 a1 = goal1
             if done2:
@@ -352,10 +352,10 @@ if modo == "Explicación":
     st.markdown("""
 ## SARSA vs Q-Learning
 
-- SARSA: aprende política real (más conservador)
-- Q-Learning: aprende política óptima (más agresivo)
+- SARSA: más conservador (política real)
+- Q-Learning: más óptimo (greedy)
 
-✔ ahora el entorno es estable
-✔ sin loops infinitos
-✔ con aprendizaje visible
+✔ reward shaping añadido
+✔ menos oscilación
+✔ entrenamiento más estable
 """)
