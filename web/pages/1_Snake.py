@@ -1,10 +1,42 @@
-import streamlit as st
+import st
 import random
 import numpy as np
 import time
 import json
 from PIL import Image, ImageDraw
 import matplotlib.pyplot as plt
+
+from utils.supabase_client import supabase
+from utils.session import get_user
+
+# =====================================================
+# 👤 USER
+# =====================================================
+
+user = get_user()
+
+# =====================================================
+# 💾 SUPABASE SAVE (NUEVO)
+# =====================================================
+
+def save_game_snake(user, score, episodes):
+    if not user:
+        return
+
+    display_name = None
+
+    if hasattr(user, "user_metadata") and user.user_metadata:
+        display_name = user.user_metadata.get("display_name")
+
+    if not display_name:
+        display_name = getattr(user, "email", "guest")
+
+    supabase.table("snake_stats").insert({
+        "user_id": user.id,
+        "display_name": display_name,
+        "score": int(score),
+        "episodes": int(episodes)
+    }).execute()
 
 # =====================================================
 # CONFIG
@@ -194,6 +226,7 @@ if modo == "Entrenar IA":
             a = choose(s)
 
             score = 0
+            episode_score = 0   # 👈 NUEVO
 
             for _ in range(200):
 
@@ -210,11 +243,17 @@ if modo == "Entrenar IA":
 
                 if r == 20:
                     score += 1
+                    episode_score += 1   # 👈 NUEVO
 
                 if done:
                     break
 
             st.session_state.scores.append(score)
+
+            # =================================================
+            # 💾 GUARDADO EN BBDD (NUEVO)
+            # =================================================
+            save_game_snake(user, episode_score, episodes)
 
             if ep % 200 == 0:
                 status.text(f"Entrenando... {ep}/{episodes}")
@@ -240,12 +279,11 @@ if modo == "Entrenar IA" and st.session_state.scores:
     st.pyplot(fig)
 
 # =====================================================
-# SIMULATION (SLIDER SOLO AQUÍ)
+# SIMULATION
 # =====================================================
 
 if modo == "Simulación IA":
 
-    # ✅ SOLO AQUÍ aparece el slider
     speed = st.slider("Velocidad simulación", 0.02, 0.5, 0.15)
 
     if st.button("▶ Iniciar simulación"):
@@ -314,8 +352,15 @@ if modo == "Explicación":
     st.markdown("""
 ## 🧠 Snake IA (SARSA)
 
-- Entrenamiento con SARSA
-- Q-table basada en estados discretos
-- Simulación por replay (tipo GridWorld)
-- Control de velocidad ajustable
+- Reinforcement Learning
+- Q-learning tabular
+- Exploración epsilon-greedy
+- Estado discreto (dirección + peligro + comida)
+
+## 💾 Base de datos
+
+Se guarda:
+- score por episodio
+- número de episodios
+- usuario
 """)
