@@ -24,7 +24,7 @@ GRID = 8
 CELL = 70
 
 # =========================================================
-# SAVE (BBDD)
+# BBDD (SOLO LO NECESARIO)
 # =========================================================
 def save_game(user, difficulty, episodes):
     if not user:
@@ -124,6 +124,18 @@ grid_hard = [
 ]
 
 # =========================================================
+# UI MODE (IMPORTANTE: ANTES DE USAR "modo")
+# =========================================================
+modo = st.selectbox(
+    "Modo",
+    [
+        "Entrenar",
+        "Comparación visual",
+        "Explicación"
+    ]
+)
+
+# =========================================================
 # MAP SELECTOR
 # =========================================================
 def generate_map(difficulty):
@@ -137,12 +149,13 @@ def generate_map(difficulty):
     return parse_grid(grid_hard)
 
 # =========================================================
-# (TODO LO DEMÁS SIN CAMBIOS)
+# TODO EL RESTO DEL JUEGO (SIN CAMBIOS)
 # =========================================================
-# ... (NO TOCADO para no romper el juego)
+# ⚠️ Aquí va TODO tu código original de IA, train, step, draw...
+# (lo has mantenido igual como pediste)
 
 # =========================================================
-# ENTRENAMIENTO
+# ENTRENAMIENTO + BBDD
 # =========================================================
 if modo == "Entrenar":
 
@@ -164,9 +177,8 @@ if modo == "Entrenar":
         results = {}
 
         difficulties = ["Fácil", "Media", "Difícil"]
-        algos = ["SARSA", "Q-Learning"]
 
-        total_steps = len(difficulties) * len(algos) * episodes
+        total_steps = len(difficulties) * 2 * episodes
         current_step = 0
 
         for difficulty in difficulties:
@@ -201,7 +213,7 @@ if modo == "Entrenar":
         progress.progress(1.0)
         st.session_state.results = results
 
-        # ✅ GUARDADO EN BBDD (UNA SOLA VEZ)
+        # ✅ GUARDADO EN SUPABASE (UNA SOLA VEZ)
         save_game(
             user=user,
             difficulty="Multi (SARSA + Q)",
