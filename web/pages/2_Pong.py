@@ -49,6 +49,7 @@ def guardar(resultado):
         supabase.table("pong_stats").insert({
             "user_id": user.id,
             "display_name": user.user_metadata.get("display_name"),
+            "mode": mode,   # ✅ FIX: ahora se guarda el modo
             "result": resultado,
             "score_player": st.session_state.s1,
             "score_ai": st.session_state.s2
@@ -109,7 +110,7 @@ def step():
     if y <= 0 or y >= 190:
         vy *= -1
 
-    # ---------------- LEFT PADDLE ----------------
+    # LEFT PADDLE AI
     if mode == "IA vs Automático":
         if y > st.session_state.player:
             st.session_state.player += 3
@@ -118,7 +119,7 @@ def step():
 
     st.session_state.player = max(0, min(150, st.session_state.player))
 
-    # ---------------- RIGHT PADDLE ----------------
+    # RIGHT PADDLE
     if mode == "Jugador vs IA":
         if y > st.session_state.ai:
             st.session_state.ai += 3
@@ -126,7 +127,6 @@ def step():
             st.session_state.ai -= 3
 
     elif mode == "IA vs Automático":
-
         if difficulty == "Avanzado":
             if y > st.session_state.ai:
                 st.session_state.ai += 2
@@ -142,7 +142,7 @@ def step():
 
     st.session_state.ai = max(0, min(150, st.session_state.ai))
 
-    # ---------------- COLLISIONS ----------------
+    # COLLISIONS
     if x <= 20 and st.session_state.player <= y <= st.session_state.player + 50:
         vx *= -1
         x = 20
@@ -151,7 +151,7 @@ def step():
         vx *= -1
         x = 380
 
-    # ---------------- SCORE ----------------
+    # SCORE
     if x < 0:
         st.session_state.s2 += 1
         x, y = 200, 100
@@ -182,7 +182,6 @@ def draw():
 # ---------------- UI ----------------
 st.write(f"{st.session_state.s1} - {st.session_state.s2}")
 
-# 🏆 RESULTADO FIJO (NO SE PIERDE)
 if st.session_state.result == "WIN":
     st.success("🏆 Has ganado")
 elif st.session_state.result == "LOSE":
@@ -205,7 +204,6 @@ if st.session_state.running:
 
     time.sleep(speed)
 
-    # ---------------- WIN CONDITION ----------------
     if st.session_state.s1 >= WIN:
         st.session_state.running = False
 
@@ -241,28 +239,15 @@ Este proyecto implementa un juego de Pong con distintos modos de comportamiento 
 
 ### 🧠 Modos disponibles
 
-- **Jugador vs IA**:  
-  El jugador controla la pala izquierda manualmente y compite contra una IA simple en la derecha.
-
-- **IA vs Automático**:  
-  La pala izquierda funciona como IA simple y la derecha puede comportarse de dos formas:
-  - 🟢 **Fácil**: movimiento automático arriba/abajo sin seguir la bola.
-  - 🔴 **Avanzado**: comportamiento tipo IA básica que sigue la posición de la bola.
+- **Jugador vs IA**: jugador contra IA simple.
+- **IA vs Automático**: comportamiento automático con dos niveles de dificultad.
 
 ### 🎯 Objetivo
-El objetivo es llegar a **5 puntos** antes que el oponente.
+Llegar a 5 puntos antes que el rival.
 
-### 🤖 Comportamiento de la IA
-La IA utilizada es una estrategia basada en reglas simples:
-- Sigue la posición vertical de la bola.
-- Ajusta su movimiento de forma proporcional.
-- No utiliza aprendizaje por refuerzo en este módulo.
+### 🤖 IA
+La IA sigue la posición de la bola mediante reglas simples, sin aprendizaje.
 
-### 📊 Finalidad del proyecto
-Este módulo permite comparar:
-- comportamiento humano vs IA
-- IA vs comportamiento automático
-- dificultad de predicción en sistemas simples
-
-Todo esto forma parte del proyecto de IA aplicada a videojuegos.
+### 📊 Propósito
+Comparar comportamientos simples vs IA basada en reglas.
 """)
