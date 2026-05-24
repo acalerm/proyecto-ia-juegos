@@ -82,7 +82,7 @@ def card_ui(card):
     """
 
 # =====================================================
-# 🛡️ FIX RENDER HAND (IMPORTANTE)
+# 🛡️ FIX RENDER HAND
 # =====================================================
 
 def render_hand(hand):
@@ -124,7 +124,7 @@ def save_game(user, result, player_score, dealer_score, mode):
     }).execute()
 
 # =====================================================
-# 📦 ESTADO SEGURO (FIX CLAVE)
+# 📦 ESTADO
 # =====================================================
 
 st.set_page_config(page_title="Blackjack", layout="centered")
@@ -265,28 +265,81 @@ with col3:
         st.rerun()
 
 # =====================================================
-# 🧾 RESULTADO + GUARDADO
+# 🧾 RESULTADO + SUPABASE
+# =====================================================
+
+if st.session_state.done and not st.session_state.saved and user:
+
+    save_game(
+        user=user,
+        result=st.session_state.result,
+        player_score=sum_hand(st.session_state.player),
+        dealer_score=sum_hand(st.session_state.dealer),
+        mode=mode
+    )
+
+    st.session_state.saved = True
+
+# =====================================================
+# 📘 EXPLICACIÓN IA (RULE-BASED)
 # =====================================================
 
 if st.session_state.done:
 
-    st.subheader("Resultado")
+    st.markdown("---")
+    st.header("🤖 Explicación de la IA")
 
-    if "Ganas" in str(st.session_state.result):
-        st.success(st.session_state.result)
-    elif "Pierdes" in str(st.session_state.result):
-        st.error(st.session_state.result)
-    else:
-        st.info(st.session_state.result)
+    st.markdown("""
+## 🧠 Rule-Based AI
 
-    if not st.session_state.saved and user:
+La IA de este Blackjack funciona con **reglas fijas programadas manualmente**.
 
-        save_game(
-            user=user,
-            result=st.session_state.result,
-            player_score=sum_hand(st.session_state.player),
-            dealer_score=sum_hand(st.session_state.dealer),
-            mode=mode
-        )
+---
 
-        st.session_state.saved = True
+## ⚙️ Decisión de la IA
+
+La IA decide entre:
+
+- 🎴 HIT (pedir carta)
+- 🛑 STAND (plantarse)
+
+según su puntuación y la carta del dealer.
+
+---
+
+## 📜 Reglas
+
+- Si tiene **17 o más → STAND**
+- Si tiene **11 o menos → HIT**
+- Si está entre **12 y 16**:
+  - dealer ≥ 7 → HIT
+  - dealer < 7 → STAND
+
+---
+
+## 🎯 Objetivo
+
+Maximizar la probabilidad de ganar evitando pasarse de 21
+y reaccionando a la carta del dealer.
+
+---
+
+## 📌 Características
+
+- No aprende
+- No entrena
+- Es determinista
+- Es totalmente explicable
+
+---
+
+## 🔁 Comparación con otros sistemas
+
+| Tipo | Ejemplo |
+|------|--------|
+| Rule-Based | Blackjack (este juego) |
+| Reinforcement Learning | GridWorld |
+| Deep Learning | Modelos neuronales |
+
+---
+""")
