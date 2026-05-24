@@ -53,18 +53,13 @@ def generate_map(difficulty):
     if difficulty == "Fácil":
 
         walls = [
+            (3,1),(3,2),(3,3),
+            (5,4),(5,5)
+        ]
 
-            # muro central
-            (2,1),(2,2),(2,3),(2,4),
-
-            # separación derecha
-            (5,3),(5,4),(5,5),
-
-            # cierre inferior parcial
-            (1,6),(2,6),(3,6),(4,6),(5,6),
-
-            # bloqueo derecha para evitar rodeo
-            (7,1),(7,2),(7,3),(7,4),(7,5)
+        # pequeño atajo central
+        traps = [
+            (4,3)
         ]
 
     # =====================================================
@@ -74,26 +69,24 @@ def generate_map(difficulty):
 
         walls = [
 
-            # pared superior
-            (1,1),(2,1),(3,1),(4,1),(5,1),
+            # muro vertical izquierdo
+            (2,1),(2,2),(2,3),(2,4),
 
-            # pared vertical izquierda
-            (1,2),(1,3),(1,4),(1,5),
+            # muro central
+            (4,2),(4,3),(4,4),(4,5),
 
-            # pared vertical derecha
-            (5,2),(5,3),(5,4),
+            # muro derecho
+            (6,1),(6,2),(6,3),
 
-            # cierre inferior
-            (2,6),(3,6),(4,6),(5,6),
+            # cierre parcial inferior
+            (1,6),(2,6),(3,6),(5,6)
+        ]
 
-            # bloqueo exterior derecho
-            (7,1),(7,2),(7,3),(7,4),(7,5),
-
-            # bloqueo exterior abajo
-            (1,7),(2,7),(3,7),(4,7),(5,7),
-
-            # atajo peligroso
-            (3,3),(3,4)
+        # atajo peligroso por el centro
+        traps = [
+            (3,3),
+            (3,4),
+            (5,4)
         ]
 
     # =====================================================
@@ -103,40 +96,36 @@ def generate_map(difficulty):
 
         walls = [
 
-            # techo del laberinto
-            (1,1),(2,1),(3,1),(4,1),(5,1),(6,1),
+            # columna izquierda
+            (1,1),(1,2),(1,3),(1,4),(1,5),
 
-            # lateral izquierdo
-            (1,2),(1,3),(1,4),(1,5),(1,6),
+            # muro superior
+            (2,1),(3,1),(4,1),(5,1),
 
-            # lateral derecho
-            (6,2),(6,3),(6,4),(6,5),
+            # muro central
+            (3,3),(3,4),(3,5),
 
-            # suelo
-            (2,6),(3,6),(4,6),(5,6),(6,6),
+            # muro derecho
+            (5,3),(5,4),(5,5),
 
-            # centro
-            (3,2),(3,3),(3,4),
-
-            # pared interna
-            (4,4),(5,4),
-
-            # bloqueo exterior derecho
-            (7,0),(7,1),(7,2),(7,3),(7,4),(7,5),
-
-            # bloqueo inferior
-            (0,7),(1,7),(2,7),(3,7),(4,7),(5,7),
-
-            # cuello estrecho
-            (5,2)
+            # cierre inferior parcial
+            (2,6),(3,6),(5,6),(6,6)
         ]
 
-    return agent, goal, walls
+        # PASILLO peligroso central
+        traps = [
+            (2,3),
+            (2,4),
+            (4,4),
+            (4,5)
+        ]
+
+    return agent, goal, walls, traps
 
 # =========================================================
 # VISIÓN
 # =========================================================
-def get_vision(agent, walls, goal):
+def get_vision(agent, walls, traps, goal):
 
     ax, ay = agent
     v = []
@@ -156,6 +145,9 @@ def get_vision(agent, walls, goal):
             elif (x,y) in walls:
                 v.append(1)
 
+            elif (x,y) in traps:
+                v.append(2)
+
             else:
                 v.append(0)
 
@@ -164,34 +156,41 @@ def get_vision(agent, walls, goal):
 # =========================================================
 # STEP
 # =========================================================
-def step(agent, action, goal, walls):
+def step(agent, action, goal, walls, traps):
 
     x,y = agent
 
     if action == 0:
         y -= 1
+
     elif action == 1:
         x += 1
+
     elif action == 2:
         y += 1
+
     elif action == 3:
         x -= 1
 
     new = (x,y)
 
-    # fuera del mapa
-    if x<0 or x>=GRID or y<0 or y>=GRID:
+    # bordes
+    if x < 0 or x >= GRID or y < 0 or y >= GRID:
         return agent, -10, False
 
-    # pared
+    # paredes
     if new in walls:
         return agent, -15, False
+
+    # trampas
+    if new in traps:
+        return new, -20, False
 
     # meta
     if new == goal:
         return new, 100, True
 
-    # distancia
+    # recompensa distancia
     d1 = abs(agent[0]-goal[0]) + abs(agent[1]-goal[1])
     d2 = abs(new[0]-goal[0]) + abs(new[1]-goal[1])
 
@@ -200,7 +199,7 @@ def step(agent, action, goal, walls):
     if d2 < d1:
         reward += 3
     else:
-        reward -= 1
+        reward -= 2
 
     return new, reward, False
 
@@ -248,15 +247,17 @@ def update(Q,s,a,r,ns,na,algo):
 # =========================================================
 def train(algo,difficulty,episodes):
 
-    Q = st.session_state.Q_sarsa if algo=="SARSA" else st.session_state.Q_ql
-
-    rewards=[]
+    Q = (
+        st.session_state.Q_sarsa
+        if algo == "SARSA"
+        else st.session_state.Q_ql
+    )
 
     for _ in range(episodes):
 
-        a,g,w = generate_map(difficulty)
+        a,g,w,t = generate_map(difficulty)
 
-        v = get_vision(a,w,g)
+        v = get_vision(a,w,t,g)
 
         gdir = (
             np.sign(g[0]-a[0]),
@@ -267,14 +268,13 @@ def train(algo,difficulty,episodes):
 
         act = choose(Q,s)
 
-        total=0
-        done=False
+        done = False
 
-        for _ in range(100):
+        for _ in range(120):
 
-            na,r,done = step(a,act,g,w)
+            na,r,done = step(a,act,g,w,t)
 
-            v2 = get_vision(na,w,g)
+            v2 = get_vision(na,w,t,g)
 
             gdir2 = (
                 np.sign(g[0]-na[0]),
@@ -287,27 +287,21 @@ def train(algo,difficulty,episodes):
 
             update(Q,s,act,r,ns,nxt,algo)
 
-            a=na
-            s=ns
-            act=nxt
-
-            total += r
+            a = na
+            s = ns
+            act = nxt
 
             if done:
                 break
 
-        rewards.append(total)
-
-    return np.mean(rewards)
-
 # =========================================================
 # DRAW
 # =========================================================
-def draw(a,g,w):
+def draw(a,g,w,t):
 
     img = Image.new(
         "RGB",
-        (GRID*CELL,GRID*CELL),
+        (GRID*CELL, GRID*CELL),
         (25,25,25)
     )
 
@@ -317,8 +311,12 @@ def draw(a,g,w):
         for y in range(GRID):
 
             d.rectangle(
-                [x*CELL,y*CELL,
-                 x*CELL+CELL,y*CELL+CELL],
+                [
+                    x*CELL,
+                    y*CELL,
+                    x*CELL+CELL,
+                    y*CELL+CELL
+                ],
                 outline=(80,80,80)
             )
 
@@ -326,22 +324,47 @@ def draw(a,g,w):
     for ob in w:
 
         d.rectangle(
-            [ob[0]*CELL,ob[1]*CELL,
-             ob[0]*CELL+CELL,ob[1]*CELL+CELL],
+            [
+                ob[0]*CELL,
+                ob[1]*CELL,
+                ob[0]*CELL+CELL,
+                ob[1]*CELL+CELL
+            ],
             fill=(200,50,50)
+        )
+
+    # trampas
+    for tr in t:
+
+        d.rectangle(
+            [
+                tr[0]*CELL+15,
+                tr[1]*CELL+15,
+                tr[0]*CELL+CELL-15,
+                tr[1]*CELL+CELL-15
+            ],
+            fill=(255,140,0)
         )
 
     # meta
     d.ellipse(
-        [g[0]*CELL+20,g[1]*CELL+20,
-         g[0]*CELL+CELL-20,g[1]*CELL+CELL-20],
+        [
+            g[0]*CELL+20,
+            g[1]*CELL+20,
+            g[0]*CELL+CELL-20,
+            g[1]*CELL+CELL-20
+        ],
         fill=(0,255,0)
     )
 
     # agente
     d.ellipse(
-        [a[0]*CELL+20,a[1]*CELL+20,
-         a[0]*CELL+CELL-20,a[1]*CELL+CELL-20],
+        [
+            a[0]*CELL+20,
+            a[1]*CELL+20,
+            a[0]*CELL+CELL-20,
+            a[1]*CELL+CELL-20
+        ],
         fill=(50,150,255)
     )
 
@@ -374,26 +397,19 @@ if modo == "Entrenar":
 
     if st.button("Entrenar IA"):
 
-        results = {}
+        progress = st.progress(0)
 
-        for d in ["Fácil","Media","Difícil"]:
+        for i,d in enumerate(["Fácil","Media","Difícil"]):
 
-            st.write(f"Entrenando {d}...")
+            train("SARSA",d,episodes)
+            train("Q-Learning",d,episodes)
 
-            s = train("SARSA",d,episodes)
-            q = train("Q-Learning",d,episodes)
+            progress.progress((i+1)/3)
 
-            results[d] = {
-                "SARSA": s,
-                "Q": q
-            }
+        # guardar BBDD
+        if user:
 
-        st.session_state.results = results
-
-        # 💾 SUPABASE
-        if user and results:
-
-            for d in results:
+            for d in ["Fácil","Media","Difícil"]:
 
                 supabase.table("gridworld_stats").insert({
                     "user_id": user.id,
@@ -401,7 +417,7 @@ if modo == "Entrenar":
                     "algorithm": "SARSA",
                     "difficulty": d,
                     "episodes": episodes,
-                    "avg_reward": float(results[d]["SARSA"])
+                    "avg_reward": 0
                 }).execute()
 
                 supabase.table("gridworld_stats").insert({
@@ -410,7 +426,7 @@ if modo == "Entrenar":
                     "algorithm": "Q-Learning",
                     "difficulty": d,
                     "episodes": episodes,
-                    "avg_reward": float(results[d]["Q"])
+                    "avg_reward": 0
                 }).execute()
 
         st.success("✅ Entrenamiento completado")
@@ -427,28 +443,31 @@ elif modo == "Comparación visual":
 
     if st.button("Simular batalla"):
 
-        a1,g1,w1 = generate_map(difficulty)
-        a2,g2,w2 = generate_map(difficulty)
+        a1,g1,w1,t1 = generate_map(difficulty)
+        a2,g2,w2,t2 = generate_map(difficulty)
 
         Q1 = st.session_state.Q_sarsa
         Q2 = st.session_state.Q_ql
 
         col1,col2 = st.columns(2)
 
-        col1.markdown("### 🟦 SARSA")
-        col2.markdown("### 🟥 Q-Learning")
+        with col1:
+            st.markdown("## 🟦 SARSA")
+
+        with col2:
+            st.markdown("## 🟥 Q-Learning")
 
         p1 = col1.empty()
         p2 = col2.empty()
 
-        done1=False
-        done2=False
+        done1 = False
+        done2 = False
 
-        for _ in range(100):
+        for _ in range(120):
 
             if not done1:
 
-                v = get_vision(a1,w1,g1)
+                v = get_vision(a1,w1,t1,g1)
 
                 gdir = (
                     np.sign(g1[0]-a1[0]),
@@ -459,11 +478,17 @@ elif modo == "Comparación visual":
 
                 act = choose(Q1,s)
 
-                a1,_,done1 = step(a1,act,g1,w1)
+                a1,_,done1 = step(
+                    a1,
+                    act,
+                    g1,
+                    w1,
+                    t1
+                )
 
             if not done2:
 
-                v = get_vision(a2,w2,g2)
+                v = get_vision(a2,w2,t2,g2)
 
                 gdir = (
                     np.sign(g2[0]-a2[0]),
@@ -474,29 +499,56 @@ elif modo == "Comparación visual":
 
                 act = choose(Q2,s)
 
-                a2,_,done2 = step(a2,act,g2,w2)
+                a2,_,done2 = step(
+                    a2,
+                    act,
+                    g2,
+                    w2,
+                    t2
+                )
 
-            p1.image(draw(a1,g1,w1))
-            p2.image(draw(a2,g2,w2))
+            p1.image(draw(a1,g1,w1,t1))
+            p2.image(draw(a2,g2,w2,t2))
 
-            time.sleep(0.35)
+            time.sleep(0.3)
 
 # =========================================================
 # EXPLICACIÓN
 # =========================================================
 elif modo == "Explicación":
 
-    st.markdown("## 📄 Explicación")
+    st.markdown("## 📘 ¿Qué ocurre en este experimento?")
 
     st.write("""
-En este entorno las IAs deben aprender a llegar a la meta evitando paredes.
+En GridWorld se comparan dos algoritmos de aprendizaje por refuerzo:
 
-- 🟦 SARSA:
-  aprende de manera más conservadora y suele elegir rutas más seguras.
+- 🟦 SARSA
+- 🟥 Q-Learning
 
-- 🟥 Q-Learning:
-  busca maximizar la recompensa final, incluso tomando caminos más agresivos.
+Ambos intentan llegar a la meta verde aprendiendo mediante recompensas y castigos.
+""")
 
-La comparación visual permite observar cómo ambos algoritmos reaccionan
-ante el mismo laberinto.
+    st.markdown("### 🟦 SARSA")
+
+    st.write("""
+SARSA aprende teniendo en cuenta la acción que realmente realiza.
+
+Por ello suele ser más conservador y evita caminos peligrosos aunque sean más rápidos.
+""")
+
+    st.markdown("### 🟥 Q-Learning")
+
+    st.write("""
+Q-Learning aprende buscando siempre la mejor recompensa posible.
+
+Esto provoca que normalmente tome atajos más agresivos y arriesgados.
+""")
+
+    st.markdown("### 🧱 Laberintos")
+
+    st.write("""
+Los mapas están diseñados para mostrar las diferencias entre ambos algoritmos:
+
+- 🟦 SARSA suele rodear zonas peligrosas
+- 🟥 Q-Learning intenta optimizar el camino aunque exista riesgo
 """)
