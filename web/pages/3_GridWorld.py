@@ -2,87 +2,114 @@ import streamlit as st
 import numpy as np
 import random
 import time
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
+from utils.supabase_client import supabase
 from utils.session import get_user
 
-st.set_page_config(page_title="GridWorld IA PRO", layout="centered")
-st.title("🤖 GridWorld IA PRO (Mapas personalizados)")
+st.set_page_config(page_title="GridWorld IA PRO FIX", layout="centered")
+st.title("🤖 GridWorld IA PRO (Mapas corregidos)")
 
 user = get_user()
 
-# =========================================================
-# CONSTANTES
-# =========================================================
+# ---------------- FONT ----------------
+try:
+    FONT = ImageFont.truetype("arial.ttf", 24)
+except:
+    FONT = ImageFont.load_default()
+
 GRID = 8
 CELL = 70
 
+# ---------------- STATE ----------------
+if "Q_sarsa" not in st.session_state:
+    st.session_state.Q_sarsa = {}
+
+if "Q_ql" not in st.session_state:
+    st.session_state.Q_ql = {}
+
+if "results" not in st.session_state:
+    st.session_state.results = {}
+
 # =========================================================
-# MAPAS (SEGÚN TU EXCEL)
+# 🧱 MAPAS (CORREGIDOS SEGÚN TU EXCEL)
 # =========================================================
 
-def generate_map(difficulty):
+def parse_grid(grid):
+    """Convierte grid visual a listas de walls/traps"""
+    walls = []
+    traps = []
+    start = None
+    goal = None
 
-    start = (0, 0)
-    goal = (7, 7)
-
-    # =====================================================
-    # 🟡 1. MEDIO (primero en tu orden)
-    # =====================================================
-    if difficulty == "Media":
-
-        walls = {
-            (0,3),(1,3),(2,3),
-            (2,1),(3,1),(4,1),
-            (4,2),(5,2),(6,2),
-            (6,4),(5,4)
-        }
-
-        traps = {
-            (3,2),   # trampa que hace el camino corto arriesgado
-            (5,3)
-        }
-
-    # =====================================================
-    # 🟢 2. FÁCIL (camino único sin trampas)
-    # =====================================================
-    elif difficulty == "Fácil":
-
-        walls = {
-            (1,1),(1,2),(1,3),
-            (2,3),(3,3),
-            (4,4),(5,4),
-            (5,5),(6,5)
-        }
-
-        traps = set()
-
-    # =====================================================
-    # 🔴 3. DIFÍCIL (dos rutas: derecha corta con trampa)
-    # =====================================================
-    else:
-
-        walls = {
-            (1,0),(2,0),
-            (2,1),(2,2),
-            (3,2),(4,2),
-            (4,3),(4,4),
-            (5,5),(6,5)
-        }
-
-        traps = {
-            (6,1),  # camino corto peligroso (derecha)
-            (6,2),
-            (6,3)
-        }
+    for y in range(GRID):
+        for x in range(GRID):
+            cell = grid[y][x]
+            if cell == "S":
+                start = (x, y)
+            elif cell == "G":
+                goal = (x, y)
+            elif cell == "█":
+                walls.append((x, y))
+            elif cell == "T":
+                traps.append((x, y))
 
     return start, goal, walls, traps
 
+
+# 1️⃣ MEDIA (Excel izquierdo)
+grid_medium = [
+    ["S"," "," "," "," "," "," "," "],
+    [" "," "," ","█","█","█"," "," "],
+    [" "," "," "," "," ","█"," "," "],
+    [" "," "," "," "," ","█"," "," "],
+    [" ","█","█","█"," "," "," "," "],
+    [" "," "," ","█"," "," "," "," "],
+    [" "," "," ","█"," ","█","█","█"],
+    [" "," "," "," "," "," "," ","G"]
+]
+
+# 2️⃣ FÁCIL (sin trampas)
+grid_easy = [
+    ["S"," "," "," "," "," "," "," "],
+    [" "," "," "," "," "," "," "," "],
+    [" "," "," ","█","█","█"," "," "],
+    [" "," "," "," "," ","█"," "," "],
+    [" ","█","█","█"," "," "," "," "],
+    [" "," "," ","█"," "," "," "," "],
+    [" "," "," ","█"," "," "," "," "],
+    [" "," "," "," "," "," "," ","G"]
+]
+
+# 3️⃣ DIFÍCIL (atajo + trampa obligatoria en camino corto)
+grid_hard = [
+    ["S"," ","█"," "," "," ","█"," "],
+    [" "," ","█"," ","█"," ","█"," "],
+    ["█"," ","█"," ","█"," "," "," "],
+    ["█"," "," "," ","█","█","█","█"],
+    ["█","█","█","T"," ","T"," "," "],
+    [" "," ","█","█"," ","█","█"," "],
+    [" "," "," "," "," ","█"," "," "],
+    ["█","█","█","█","█","█"," ","G"]
+]
+
 # =========================================================
-# VISIÓN
+# MAP SELECTOR
+# =========================================================
+def generate_map(difficulty):
+
+    if difficulty == "Fácil":
+        return parse_grid(grid_easy)
+
+    if difficulty == "Media":
+        return parse_grid(grid_medium)
+
+    return parse_grid(grid_hard)
+
+# =========================================================
+# VISIÓN 3x3
 # =========================================================
 def get_vision(agent, walls, traps, goal):
-
     ax, ay = agent
     v = []
 
@@ -110,26 +137,26 @@ def get_vision(agent, walls, traps, goal):
 # =========================================================
 def step(agent, action, goal, walls, traps):
 
-    x, y = agent
+    x,y = agent
 
     if action == 0: y -= 1
     elif action == 1: x += 1
     elif action == 2: y += 1
     elif action == 3: x -= 1
 
-    new = (x, y)
-
-    if x < 0 or x >= GRID or y < 0 or y >= GRID:
-        return agent, -5, False
+    new = (x,y)
 
     if new in walls:
         return agent, -10, False
 
     if new in traps:
-        return new, -30, False
+        return new, -20, False
 
     if new == goal:
         return new, 100, True
+
+    if x < 0 or x >= GRID or y < 0 or y >= GRID:
+        return agent, -5, False
 
     return new, -1, False
 
@@ -168,7 +195,7 @@ def update(Q, s, a, r, ns, na, algo):
 # =========================================================
 def train(algo, difficulty, episodes):
 
-    Q = {}
+    Q = st.session_state.Q_sarsa if algo == "SARSA" else st.session_state.Q_ql
 
     rewards = []
 
@@ -176,20 +203,20 @@ def train(algo, difficulty, episodes):
 
         a, g, w, t = generate_map(difficulty)
 
-        v = get_vision(a,w,t,g)
+        v = get_vision(a, w, t, g)
+
         gdir = (np.sign(g[0]-a[0]), np.sign(g[1]-a[1]))
 
         s = state(v, gdir)
         act = choose(Q, s)
 
         total = 0
-        done = False
 
         for _ in range(80):
 
             na, r, done = step(a, act, g, w, t)
 
-            v2 = get_vision(na,w,t,g)
+            v2 = get_vision(na, w, t, g)
             gdir2 = (np.sign(g[0]-na[0]), np.sign(g[1]-na[1]))
 
             ns = state(v2, gdir2)
@@ -215,21 +242,21 @@ def train(algo, difficulty, episodes):
 # =========================================================
 def draw(a, g, w, t):
 
-    img = Image.new("RGB", (GRID*CELL, GRID*CELL), (25,25,25))
+    img = Image.new("RGB",(GRID*CELL,GRID*CELL),(25,25,25))
     d = ImageDraw.Draw(img)
 
     for x in range(GRID):
         for y in range(GRID):
-            d.rectangle([x*CELL,y*CELL,x*CELL+CELL,y*CELL+CELL], outline=(80,80,80))
+            d.rectangle([x*CELL,y*CELL,x*CELL+CELL,y*CELL+CELL],outline=(80,80,80))
 
     for ob in w:
-        d.rectangle([ob[0]*CELL,ob[1]*CELL,ob[0]*CELL+CELL,ob[1]*CELL+CELL], fill=(200,50,50))
+        d.rectangle([ob[0]*CELL,ob[1]*CELL,ob[0]*CELL+CELL,ob[1]*CELL+CELL],fill=(200,50,50))
 
     for tr in t:
-        d.rectangle([tr[0]*CELL,tr[1]*CELL,tr[0]*CELL+CELL,tr[1]*CELL+CELL], fill=(255,140,0))
+        d.rectangle([tr[0]*CELL,tr[1]*CELL,tr[0]*CELL+CELL,tr[1]*CELL+CELL],fill=(255,140,0))
 
-    d.ellipse([g[0]*CELL+15,g[1]*CELL+15,g[0]*CELL+CELL-15,g[1]*CELL+CELL-15], fill=(0,255,0))
-    d.ellipse([a[0]*CELL+15,a[1]*CELL+15,a[0]*CELL+CELL-15,a[1]*CELL+CELL-15], fill=(50,150,255))
+    d.ellipse([g[0]*CELL+20,g[1]*CELL+20,g[0]*CELL+CELL-20,g[1]*CELL+CELL-20],fill=(0,255,0))
+    d.ellipse([a[0]*CELL+20,a[1]*CELL+20,a[0]*CELL+CELL-20,a[1]*CELL+CELL-20],fill=(50,150,255))
 
     return img
 
@@ -238,23 +265,32 @@ def draw(a, g, w, t):
 # =========================================================
 modo = st.selectbox("Modo", ["Entrenar", "Comparación visual", "Explicación"])
 
+# =========================================================
+# TRAIN
+# =========================================================
 if modo == "Entrenar":
 
     episodes = st.slider("Episodios", 1000, 20000, 5000, step=1000)
 
     if st.button("Entrenar IA"):
 
-        st.write("Entrenando SARSA vs Q-Learning...")
+        results = {}
 
-        for d in ["Fácil","Media","Difícil"]:
+        for d in ["Fácil", "Media", "Difícil"]:
+
             s = train("SARSA", d, episodes)
             q = train("Q-Learning", d, episodes)
 
-            st.write(f"{d} → SARSA: {s:.2f} | Q: {q:.2f}")
+            results[d] = {"SARSA": s, "Q": q}
 
-        st.success("Entrenamiento completado")
+        st.session_state.results = results
 
-elif modo == "Comparación visual":
+        st.success("Entrenamiento completo")
+
+# =========================================================
+# COMPARACIÓN
+# =========================================================
+if modo == "Comparación visual":
 
     difficulty = st.selectbox("Dificultad", ["Fácil","Media","Difícil"])
 
@@ -263,31 +299,40 @@ elif modo == "Comparación visual":
         a1,g1,w1,t1 = generate_map(difficulty)
         a2,g2,w2,t2 = generate_map(difficulty)
 
-        col1, col2 = st.columns(2)
+        col1,col2 = st.columns(2)
         p1 = col1.empty()
         p2 = col2.empty()
+
+        Q1 = st.session_state.Q_sarsa
+        Q2 = st.session_state.Q_ql
 
         for _ in range(80):
 
             v = get_vision(a1,w1,t1,g1)
             gdir = (np.sign(g1[0]-a1[0]), np.sign(g1[1]-a1[1]))
-            a1,_,_ = step(a1,0,g1,w1,t1)
+            s = state(v,gdir)
+            act = choose(Q1,s)
+            a1,_,_ = step(a1,act,g1,w1,t1)
 
             v = get_vision(a2,w2,t2,g2)
             gdir = (np.sign(g2[0]-a2[0]), np.sign(g2[1]-a2[1]))
-            a2,_,_ = step(a2,1,g2,w2,t2)
+            s = state(v,gdir)
+            act = choose(Q2,s)
+            a2,_,_ = step(a2,act,g2,w2,t2)
 
             p1.image(draw(a1,g1,w1,t1))
             p2.image(draw(a2,g2,w2,t2))
+            time.sleep(0.4)
 
-            time.sleep(0.3)
+# =========================================================
+# EXPLICACIÓN
+# =========================================================
+if modo == "Explicación":
+    st.markdown("""
+## SARSA vs Q-Learning
 
-else:
-    st.write("""
-### 📘 Explicación
+- SARSA: más conservador (aprende lo que realmente hace)
+- Q-Learning: más agresivo (aprende el mejor futuro posible)
 
-- **SARSA**: evita trampas → más seguro
-- **Q-Learning**: busca el camino óptimo → más arriesgado
-
-Los mapas están diseñados para forzar decisiones distintas en cada dificultad.
+Las trampas fuerzan diferencias de estrategia.
 """)
