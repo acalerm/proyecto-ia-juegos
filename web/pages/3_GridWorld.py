@@ -11,9 +11,6 @@ st.set_page_config(page_title="GridWorld IA", layout="centered")
 
 st.title("🤖 GridWorld IA")
 
-# =========================================================
-# 👤 USER
-# =========================================================
 user = get_user()
 
 # =========================================================
@@ -39,87 +36,77 @@ if "Q_sarsa" not in st.session_state:
 if "Q_ql" not in st.session_state:
     st.session_state.Q_ql = {}
 
-if "trained" not in st.session_state:
-    st.session_state.trained = False
+if "results" not in st.session_state:
+    st.session_state.results = {}
 
 # =========================================================
-# 🧱 MAPAS
+# MAPAS
 # =========================================================
 def generate_map(difficulty):
 
-    agent = (0, 0)
-    goal = (7, 7)
+    agent = (0,0)
+    goal = (7,7)
 
     # =====================================================
-    # FÁCIL
+    # 🟢 FÁCIL
     # =====================================================
     if difficulty == "Fácil":
 
         walls = [
-            (3,3),
-            (3,4),
-            (4,3)
+            (2,1),(2,2),(2,3),
+            (4,4),(5,4)
         ]
 
     # =====================================================
-    # MEDIA
+    # 🟡 MEDIA
     # =====================================================
     elif difficulty == "Media":
 
-        # Dos caminos:
-        # - uno corto y estrecho
-        # - otro largo y seguro
-
         walls = [
 
-            # bloque central
-            (2,2),(2,3),(2,4),
-            (3,4),
-            (4,4),
-            (5,4),
+            # muro horizontal superior
+            (1,2),(2,2),(3,2),(4,2),(5,2),
 
-            # pasillo estrecho
-            (4,1),
-            (4,2),
+            # hueco estratégico
+            # (6,2) libre
 
-            # pared lateral
-            (6,2),(6,3)
+            # muro vertical
+            (4,3),(4,4),(4,5),
+
+            # cierre inferior
+            (1,6),(2,6),(3,6),(4,6),(5,6)
         ]
 
     # =====================================================
-    # DIFÍCIL
+    # 🔴 DIFÍCIL
     # =====================================================
     else:
 
-        # mapa diseñado para:
-        # SARSA -> ruta segura
-        # Q-Learning -> atajo peligroso
-
         walls = [
 
-            # muro vertical izquierdo
-            (1,1),(1,2),(1,3),(1,4),
+            # borde central
+            (1,1),(2,1),(3,1),(4,1),(5,1),
 
-            # muro horizontal superior
-            (2,4),(3,4),(4,4),
+            # PASO arriesgado arriba
+            # (6,1) libre
 
-            # muro central
-            (4,1),(4,2),
+            # pared vertical central
+            (3,2),(3,3),(3,4),(3,5),
 
-            # cierre parcial
-            (5,2),(6,2),
+            # pared derecha
+            (5,3),(5,4),(5,5),
 
-            # zona inferior
-            (2,6),(3,6),(4,6),
+            # cierre inferior
+            (1,6),(2,6),(3,6),(4,6),(5,6),(6,6),
 
-            # laberinto
-            (6,4),(6,5)
+            # bloqueo lateral
+            (6,3),(6,4)
         ]
 
     return agent, goal, walls
 
 # =========================================================
-# 🧠 VISIÓN
+# VISIÓN
 # =========================================================
 def get_vision(agent, walls, goal):
 
@@ -136,7 +123,7 @@ def get_vision(agent, walls, goal):
                 v.append(-1)
 
             elif (x,y) == goal:
-                v.append(2)
+                v.append(3)
 
             elif (x,y) in walls:
                 v.append(1)
@@ -155,31 +142,28 @@ def step(agent, action, goal, walls):
 
     if action == 0:
         y -= 1
-
     elif action == 1:
         x += 1
-
     elif action == 2:
         y += 1
-
     elif action == 3:
         x -= 1
 
     new = (x,y)
 
-    # pared exterior
-    if x < 0 or x >= GRID or y < 0 or y >= GRID:
-        return agent, -15, False
+    # fuera del mapa
+    if x<0 or x>=GRID or y<0 or y>=GRID:
+        return agent, -10, False
 
-    # paredes
+    # pared
     if new in walls:
-        return agent, -20, False
+        return agent, -15, False
 
     # meta
     if new == goal:
         return new, 100, True
 
-    # recompensa por acercarse
+    # distancia
     d1 = abs(agent[0]-goal[0]) + abs(agent[1]-goal[1])
     d2 = abs(new[0]-goal[0]) + abs(new[1]-goal[1])
 
@@ -187,6 +171,8 @@ def step(agent, action, goal, walls):
 
     if d2 < d1:
         reward += 3
+    else:
+        reward -= 1
 
     return new, reward, False
 
@@ -201,9 +187,7 @@ def choose(Q,s):
     if s not in Q:
         Q[s] = [0,0,0,0]
 
-    epsilon = 0.1
-
-    if random.random() < epsilon:
+    if random.random() < 0.1:
         return random.randint(0,3)
 
     return int(np.argmax(Q[s]))
@@ -219,18 +203,12 @@ def update(Q,s,a,r,ns,na,algo):
     if ns not in Q:
         Q[ns] = [0,0,0,0]
 
-    # =====================================================
-    # SARSA
-    # =====================================================
     if algo == "SARSA":
 
         Q[s][a] += alpha * (
             r + gamma * Q[ns][na] - Q[s][a]
         )
 
-    # =====================================================
-    # Q-LEARNING
-    # =====================================================
     else:
 
         Q[s][a] += alpha * (
@@ -240,13 +218,11 @@ def update(Q,s,a,r,ns,na,algo):
 # =========================================================
 # TRAIN
 # =========================================================
-def train(algo, difficulty, episodes):
+def train(algo,difficulty,episodes):
 
-    Q = (
-        st.session_state.Q_sarsa
-        if algo == "SARSA"
-        else st.session_state.Q_ql
-    )
+    Q = st.session_state.Q_sarsa if algo=="SARSA" else st.session_state.Q_ql
+
+    rewards=[]
 
     for _ in range(episodes):
 
@@ -263,9 +239,10 @@ def train(algo, difficulty, episodes):
 
         act = choose(Q,s)
 
-        done = False
+        total=0
+        done=False
 
-        for _ in range(80):
+        for _ in range(100):
 
             na,r,done = step(a,act,g,w)
 
@@ -282,72 +259,61 @@ def train(algo, difficulty, episodes):
 
             update(Q,s,act,r,ns,nxt,algo)
 
-            a = na
-            s = ns
-            act = nxt
+            a=na
+            s=ns
+            act=nxt
+
+            total += r
 
             if done:
                 break
 
+        rewards.append(total)
+
+    return np.mean(rewards)
+
 # =========================================================
 # DRAW
 # =========================================================
-def draw(agent,goal,walls):
+def draw(a,g,w):
 
     img = Image.new(
         "RGB",
-        (GRID*CELL, GRID*CELL),
+        (GRID*CELL,GRID*CELL),
         (25,25,25)
     )
 
     d = ImageDraw.Draw(img)
 
-    # grid
     for x in range(GRID):
         for y in range(GRID):
 
             d.rectangle(
-                [
-                    x*CELL,
-                    y*CELL,
-                    x*CELL+CELL,
-                    y*CELL+CELL
-                ],
+                [x*CELL,y*CELL,
+                 x*CELL+CELL,y*CELL+CELL],
                 outline=(80,80,80)
             )
 
-    # walls
-    for ob in walls:
+    # paredes
+    for ob in w:
 
         d.rectangle(
-            [
-                ob[0]*CELL,
-                ob[1]*CELL,
-                ob[0]*CELL+CELL,
-                ob[1]*CELL+CELL
-            ],
+            [ob[0]*CELL,ob[1]*CELL,
+             ob[0]*CELL+CELL,ob[1]*CELL+CELL],
             fill=(200,50,50)
         )
 
-    # goal
+    # meta
     d.ellipse(
-        [
-            goal[0]*CELL+20,
-            goal[1]*CELL+20,
-            goal[0]*CELL+CELL-20,
-            goal[1]*CELL+CELL-20
-        ],
+        [g[0]*CELL+20,g[1]*CELL+20,
+         g[0]*CELL+CELL-20,g[1]*CELL+CELL-20],
         fill=(0,255,0)
     )
 
-    # player
+    # agente
     d.ellipse(
-        [
-            agent[0]*CELL+20,
-            agent[1]*CELL+20,
-            agent[0]*CELL+CELL-20,
-            agent[1]*CELL+CELL-20
-        ],
+        [a[0]*CELL+20,a[1]*CELL+20,
+         a[0]*CELL+CELL-20,a[1]*CELL+CELL-20],
         fill=(50,150,255)
     )
 
@@ -356,21 +322,19 @@ def draw(agent,goal,walls):
 # =========================================================
 # UI
 # =========================================================
-modo = st.selectbox("Modo", [
-    "Entrenar",
-    "Comparación visual",
-    "Explicación"
-])
+modo = st.selectbox(
+    "Modo",
+    [
+        "Entrenar",
+        "Comparación visual",
+        "Explicación"
+    ]
+)
 
 # =========================================================
 # ENTRENAR
 # =========================================================
 if modo == "Entrenar":
-
-    difficulty = st.selectbox(
-        "Dificultad",
-        ["Fácil","Media","Difícil"]
-    )
 
     episodes = st.slider(
         "Episodios",
@@ -382,56 +346,55 @@ if modo == "Entrenar":
 
     if st.button("Entrenar IA"):
 
-        progress = st.progress(0)
+        results = {}
 
-        train("SARSA", difficulty, episodes)
-        progress.progress(50)
+        for d in ["Fácil","Media","Difícil"]:
 
-        train("Q-Learning", difficulty, episodes)
-        progress.progress(100)
+            st.write(f"Entrenando {d}...")
 
-        st.session_state.trained = True
+            s = train("SARSA",d,episodes)
+            q = train("Q-Learning",d,episodes)
 
-        # =================================================
-        # GUARDAR
-        # =================================================
-        if user:
+            results[d] = {
+                "SARSA": s,
+                "Q": q
+            }
 
-            supabase.table("gridworld_stats").insert({
-                "user_id": user.id,
-                "display_name": user.user_metadata.get("display_name"),
-                "algorithm": "SARSA",
-                "difficulty": difficulty,
-                "episodes": episodes,
-                "avg_reward": 0
-            }).execute()
+        st.session_state.results = results
 
-            supabase.table("gridworld_stats").insert({
-                "user_id": user.id,
-                "display_name": user.user_metadata.get("display_name"),
-                "algorithm": "Q-Learning",
-                "difficulty": difficulty,
-                "episodes": episodes,
-                "avg_reward": 0
-            }).execute()
+        # 💾 SUPABASE
+        if user and results:
+
+            for d in results:
+
+                supabase.table("gridworld_stats").insert({
+                    "user_id": user.id,
+                    "display_name": user.user_metadata.get("display_name"),
+                    "algorithm": "SARSA",
+                    "difficulty": d,
+                    "episodes": episodes,
+                    "avg_reward": float(results[d]["SARSA"])
+                }).execute()
+
+                supabase.table("gridworld_stats").insert({
+                    "user_id": user.id,
+                    "display_name": user.user_metadata.get("display_name"),
+                    "algorithm": "Q-Learning",
+                    "difficulty": d,
+                    "episodes": episodes,
+                    "avg_reward": float(results[d]["Q"])
+                }).execute()
 
         st.success("✅ Entrenamiento completado")
 
 # =========================================================
-# COMPARACIÓN
+# COMPARACIÓN VISUAL
 # =========================================================
-if modo == "Comparación visual":
+elif modo == "Comparación visual":
 
     difficulty = st.selectbox(
         "Dificultad",
         ["Fácil","Media","Difícil"]
-    )
-
-    speed = st.slider(
-        "Velocidad simulación",
-        0.05,
-        1.0,
-        0.3
     )
 
     if st.button("Simular batalla"):
@@ -444,23 +407,17 @@ if modo == "Comparación visual":
 
         col1,col2 = st.columns(2)
 
-        with col1:
-            st.subheader("🟢 SARSA")
-
-        with col2:
-            st.subheader("🔴 Q-Learning")
+        col1.markdown("### 🟦 SARSA")
+        col2.markdown("### 🟥 Q-Learning")
 
         p1 = col1.empty()
         p2 = col2.empty()
 
-        done1 = False
-        done2 = False
+        done1=False
+        done2=False
 
-        for _ in range(80):
+        for _ in range(100):
 
-            # =================================================
-            # SARSA
-            # =================================================
             if not done1:
 
                 v = get_vision(a1,w1,g1)
@@ -476,9 +433,6 @@ if modo == "Comparación visual":
 
                 a1,_,done1 = step(a1,act,g1,w1)
 
-            # =================================================
-            # QL
-            # =================================================
             if not done2:
 
                 v = get_vision(a2,w2,g2)
@@ -494,39 +448,27 @@ if modo == "Comparación visual":
 
                 a2,_,done2 = step(a2,act,g2,w2)
 
-            p1.image(draw(a1,g1,w1), width=350)
-            p2.image(draw(a2,g2,w2), width=350)
+            p1.image(draw(a1,g1,w1))
+            p2.image(draw(a2,g2,w2))
 
-            time.sleep(speed)
+            time.sleep(0.35)
 
 # =========================================================
 # EXPLICACIÓN
 # =========================================================
-if modo == "Explicación":
+elif modo == "Explicación":
 
     st.markdown("## 📄 Explicación")
 
     st.write("""
-GridWorld permite comparar dos algoritmos de aprendizaje por refuerzo:
+En este entorno las IAs deben aprender a llegar a la meta evitando paredes.
 
-### 🟢 SARSA
-- Más conservador
-- Aprende usando la acción que realmente ejecuta
-- Tiende a evitar rutas peligrosas
-- Prioriza estabilidad y seguridad
+- 🟦 SARSA:
+  aprende de manera más conservadora y suele elegir rutas más seguras.
 
-### 🔴 Q-Learning
-- Más agresivo
-- Aprende la mejor acción posible teóricamente
-- Busca rutas más rápidas y eficientes
-- Puede asumir más riesgos
+- 🟥 Q-Learning:
+  busca maximizar la recompensa final, incluso tomando caminos más agresivos.
 
-### 🎯 Objetivo
-La IA debe encontrar el camino hasta la meta evitando paredes y optimizando sus decisiones.
-
-### 👀 Visión local 3x3
-La IA no conoce el mapa completo.
-Solo puede observar las casillas cercanas a su posición actual.
-
-Esto obliga al agente a aprender mediante experiencia y exploración.
+La comparación visual permite observar cómo ambos algoritmos reaccionan
+ante el mismo laberinto.
 """)
