@@ -53,8 +53,18 @@ def generate_map(difficulty):
     if difficulty == "Fácil":
 
         walls = [
-            (2,1),(2,2),(2,3),
-            (4,4),(5,4)
+
+            # muro central
+            (2,1),(2,2),(2,3),(2,4),
+
+            # separación derecha
+            (5,3),(5,4),(5,5),
+
+            # cierre inferior parcial
+            (1,6),(2,6),(3,6),(4,6),(5,6),
+
+            # bloqueo derecha para evitar rodeo
+            (7,1),(7,2),(7,3),(7,4),(7,5)
         ]
 
     # =====================================================
@@ -64,17 +74,26 @@ def generate_map(difficulty):
 
         walls = [
 
-            # muro horizontal superior
-            (1,2),(2,2),(3,2),(4,2),(5,2),
+            # pared superior
+            (1,1),(2,1),(3,1),(4,1),(5,1),
 
-            # hueco estratégico
-            # (6,2) libre
+            # pared vertical izquierda
+            (1,2),(1,3),(1,4),(1,5),
 
-            # muro vertical
-            (4,3),(4,4),(4,5),
+            # pared vertical derecha
+            (5,2),(5,3),(5,4),
 
             # cierre inferior
-            (1,6),(2,6),(3,6),(4,6),(5,6)
+            (2,6),(3,6),(4,6),(5,6),
+
+            # bloqueo exterior derecho
+            (7,1),(7,2),(7,3),(7,4),(7,5),
+
+            # bloqueo exterior abajo
+            (1,7),(2,7),(3,7),(4,7),(5,7),
+
+            # atajo peligroso
+            (3,3),(3,4)
         ]
 
     # =====================================================
@@ -84,23 +103,32 @@ def generate_map(difficulty):
 
         walls = [
 
-            # borde central
-            (1,1),(2,1),(3,1),(4,1),(5,1),
+            # techo del laberinto
+            (1,1),(2,1),(3,1),(4,1),(5,1),(6,1),
 
-            # PASO arriesgado arriba
-            # (6,1) libre
+            # lateral izquierdo
+            (1,2),(1,3),(1,4),(1,5),(1,6),
 
-            # pared vertical central
-            (3,2),(3,3),(3,4),(3,5),
+            # lateral derecho
+            (6,2),(6,3),(6,4),(6,5),
 
-            # pared derecha
-            (5,3),(5,4),(5,5),
+            # suelo
+            (2,6),(3,6),(4,6),(5,6),(6,6),
 
-            # cierre inferior
-            (1,6),(2,6),(3,6),(4,6),(5,6),(6,6),
+            # centro
+            (3,2),(3,3),(3,4),
 
-            # bloqueo lateral
-            (6,3),(6,4)
+            # pared interna
+            (4,4),(5,4),
+
+            # bloqueo exterior derecho
+            (7,0),(7,1),(7,2),(7,3),(7,4),(7,5),
+
+            # bloqueo inferior
+            (0,7),(1,7),(2,7),(3,7),(4,7),(5,7),
+
+            # cuello estrecho
+            (5,2)
         ]
 
     return agent, goal, walls
