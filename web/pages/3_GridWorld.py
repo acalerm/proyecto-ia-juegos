@@ -8,7 +8,7 @@ from utils.supabase_client import supabase
 from utils.session import get_user
 
 st.set_page_config(page_title="GridWorld IA PRO FIX", layout="centered")
-st.title("🤖 GridWorld IA PRO (Mapas corregidos)")
+st.title("🤖 GridWorld IA PRO (FIXED)")
 
 user = get_user()
 
@@ -32,11 +32,10 @@ if "results" not in st.session_state:
     st.session_state.results = {}
 
 # =========================================================
-# 🧱 MAPAS (CORREGIDOS SEGÚN TU EXCEL)
+# 🧱 MAPAS (NO MODIFICADOS)
 # =========================================================
 
 def parse_grid(grid):
-    """Convierte grid visual a listas de walls/traps"""
     walls = []
     traps = []
     start = None
@@ -57,7 +56,6 @@ def parse_grid(grid):
     return start, goal, walls, traps
 
 
-# 1️⃣ MEDIA (Excel izquierdo)
 grid_medium = [
     ["S"," "," ","█"," "," "," ","█"],
     [" "," "," ","T"," ","█"," ","█"],
@@ -69,7 +67,6 @@ grid_medium = [
     ["█"," "," "," "," "," "," ","G"]
 ]
 
-# 2️⃣ FÁCIL (sin trampas)
 grid_easy = [
     ["S"," "," ","█"," "," ","█","█"],
     [" "," "," ","█"," "," "," ","█"],
@@ -81,7 +78,6 @@ grid_easy = [
     [" "," "," ","█"," ","█","█","G"]
 ]
 
-# 3️⃣ DIFÍCIL (atajo + trampa obligatoria en camino corto)
 grid_hard = [
     ["S"," ","T"," "," "," "," "," "],
     [" ","█","█","█","█","█","█"," "],
@@ -97,17 +93,14 @@ grid_hard = [
 # MAP SELECTOR
 # =========================================================
 def generate_map(difficulty):
-
     if difficulty == "Fácil":
         return parse_grid(grid_easy)
-
     if difficulty == "Media":
         return parse_grid(grid_medium)
-
     return parse_grid(grid_hard)
 
 # =========================================================
-# VISIÓN 3x3
+# VISION 3x3
 # =========================================================
 def get_vision(agent, walls, traps, goal):
     ax, ay = agent
@@ -115,7 +108,6 @@ def get_vision(agent, walls, traps, goal):
 
     for dy in [-1,0,1]:
         for dx in [-1,0,1]:
-
             x = ax + dx
             y = ay + dy
 
@@ -133,18 +125,22 @@ def get_vision(agent, walls, traps, goal):
     return tuple(v)
 
 # =========================================================
-# STEP
+# STEP (CORREGIDO)
 # =========================================================
 def step(agent, action, goal, walls, traps):
 
-    x,y = agent
+    x, y = agent
 
     if action == 0: y -= 1
     elif action == 1: x += 1
     elif action == 2: y += 1
     elif action == 3: x -= 1
 
-    new = (x,y)
+    # límites primero
+    if x < 0 or x >= GRID or y < 0 or y >= GRID:
+        return agent, -5, False
+
+    new = (x, y)
 
     if new in walls:
         return agent, -10, False
@@ -155,16 +151,13 @@ def step(agent, action, goal, walls, traps):
     if new == goal:
         return new, 100, True
 
-    if x < 0 or x >= GRID or y < 0 or y >= GRID:
-        return agent, -5, False
-
     return new, -1, False
 
 # =========================================================
 # RL
 # =========================================================
 def state(v, gdir):
-    return v + gdir
+    return tuple(v) + tuple(gdir)
 
 def choose(Q, s):
     if s not in Q:
@@ -191,21 +184,20 @@ def update(Q, s, a, r, ns, na, algo):
         Q[s][a] += alpha * (r + gamma * np.max(Q[ns]) - Q[s][a])
 
 # =========================================================
-# TRAIN
+# TRAIN (ARREGLADO)
 # =========================================================
 def train(algo, difficulty, episodes):
 
     Q = st.session_state.Q_sarsa if algo == "SARSA" else st.session_state.Q_ql
-
     rewards = []
 
     for _ in range(episodes):
 
-        a, g, w, t = generate_map(difficulty)
+        start, goal, walls, traps = generate_map(difficulty)
+        agent = start
 
-        v = get_vision(a, w, t, g)
-
-        gdir = (np.sign(g[0]-a[0]), np.sign(g[1]-a[1]))
+        v = get_vision(agent, walls, traps, goal)
+        gdir = (np.sign(goal[0]-agent[0]), np.sign(goal[1]-agent[1]))
 
         s = state(v, gdir)
         act = choose(Q, s)
@@ -214,19 +206,19 @@ def train(algo, difficulty, episodes):
 
         for _ in range(80):
 
-            na, r, done = step(a, act, g, w, t)
+            new_agent, r, done = step(agent, act, goal, walls, traps)
 
-            v2 = get_vision(na, w, t, g)
-            gdir2 = (np.sign(g[0]-na[0]), np.sign(g[1]-na[1]))
+            v2 = get_vision(new_agent, walls, traps, goal)
+            gdir2 = (np.sign(goal[0]-new_agent[0]), np.sign(goal[1]-new_agent[1]))
 
             ns = state(v2, gdir2)
-            nxt = choose(Q, ns)
+            na = choose(Q, ns)
 
-            update(Q, s, act, r, ns, nxt, algo)
+            update(Q, s, act, r, ns, na, algo)
 
-            a = na
+            agent = new_agent
             s = ns
-            act = nxt
+            act = na
 
             total += r
 
@@ -288,7 +280,7 @@ if modo == "Entrenar":
         st.success("Entrenamiento completo")
 
 # =========================================================
-# COMPARACIÓN
+# COMPARACIÓN (ARREGLADA)
 # =========================================================
 if modo == "Comparación visual":
 
@@ -296,8 +288,11 @@ if modo == "Comparación visual":
 
     if st.button("Simular"):
 
-        a1,g1,w1,t1 = generate_map(difficulty)
-        a2,g2,w2,t2 = generate_map(difficulty)
+        start1, goal1, walls1, traps1 = generate_map(difficulty)
+        start2, goal2, walls2, traps2 = generate_map(difficulty)
+
+        a1 = start1
+        a2 = start2
 
         col1,col2 = st.columns(2)
         p1 = col1.empty()
@@ -308,20 +303,21 @@ if modo == "Comparación visual":
 
         for _ in range(80):
 
-            v = get_vision(a1,w1,t1,g1)
-            gdir = (np.sign(g1[0]-a1[0]), np.sign(g1[1]-a1[1]))
+            v = get_vision(a1,walls1,traps1,goal1)
+            gdir = (np.sign(goal1[0]-a1[0]), np.sign(goal1[1]-a1[1]))
             s = state(v,gdir)
             act = choose(Q1,s)
-            a1,_,_ = step(a1,act,g1,w1,t1)
+            a1,_,_ = step(a1,act,goal1,walls1,traps1)
 
-            v = get_vision(a2,w2,t2,g2)
-            gdir = (np.sign(g2[0]-a2[0]), np.sign(g2[1]-a2[1]))
+            v = get_vision(a2,walls2,traps2,goal2)
+            gdir = (np.sign(goal2[0]-a2[0]), np.sign(goal2[1]-a2[1]))
             s = state(v,gdir)
             act = choose(Q2,s)
-            a2,_,_ = step(a2,act,g2,w2,t2)
+            a2,_,_ = step(a2,act,goal2,walls2,traps2)
 
-            p1.image(draw(a1,g1,w1,t1))
-            p2.image(draw(a2,g2,w2,t2))
+            p1.image(draw(a1,goal1,walls1,traps1))
+            p2.image(draw(a2,goal2,walls2,traps2))
+
             time.sleep(0.4)
 
 # =========================================================
