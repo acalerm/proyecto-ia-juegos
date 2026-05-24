@@ -19,7 +19,6 @@ if "board" not in st.session_state:
 if "selected_square" not in st.session_state:
     st.session_state.selected_square = None
 
-# 🔐 control anti-duplicado real
 if "last_action" not in st.session_state:
     st.session_state.last_action = None
 
@@ -111,7 +110,7 @@ def casilla_click(square):
             st.session_state.selected_square = None
 
             if not board.is_game_over():
-                if dificultad == "Fácil":
+                if dificultad == "Fácil (Rule Based)":
                     movimiento_ia_random(board)
                 else:
                     movimiento_ia_minimax(board)
@@ -159,12 +158,11 @@ if board.is_game_over():
     elif board.is_stalemate():
         st.info("🤝 Empate")
 
-# --- REINICIAR (FIX DEFINITIVO) ---
+# --- REINICIAR ---
 if st.button("Reiniciar partida"):
 
     action_id = "restart_chess"
 
-    # 🔒 evita doble ejecución en reruns
     if st.session_state.last_action == action_id:
         st.stop()
 
@@ -172,7 +170,6 @@ if st.button("Reiniciar partida"):
 
     board = st.session_state.board
 
-    # 💾 guardar SOLO UNA VEZ
     if user and not board.is_game_over():
         supabase.table("chess_stats").insert({
             "user_id": user.id,
@@ -183,9 +180,76 @@ if st.button("Reiniciar partida"):
             "difficulty": dificultad
         }).execute()
 
-    # 🔄 reset
     st.session_state.board = chess.Board()
     st.session_state.selected_square = None
 
-    # liberar acción
     st.session_state.last_action = None
+
+# =====================================================
+# 📘 EXPLICACIÓN (SECCIÓN APARTE)
+# =====================================================
+
+st.markdown("---")
+st.header("📘 Explicación del sistema de IA en Ajedrez")
+
+st.markdown("""
+## 🤖 Tipo de IA utilizada
+
+Este ajedrez usa **dos tipos de IA diferentes** según la dificultad:
+
+---
+
+## 🟢 Modo Fácil → Rule-Based AI
+
+- La IA elige un movimiento aleatorio válido
+- No evalúa posiciones
+- No planifica a futuro
+
+👉 Es una IA **simple y no inteligente**, solo sigue reglas básicas.
+
+---
+
+## 🔴 Modo Difícil → Minimax AI
+
+Esta IA sí “piensa”:
+
+### ⚙️ Cómo funciona:
+
+- Simula posibles movimientos futuros
+- Evalúa posiciones del tablero
+- Elige el movimiento con mejor resultado
+
+### 🧠 Algoritmo:
+- Minimax con profundidad 2
+
+---
+
+## 📊 Evaluación del tablero
+
+La IA calcula un valor:
+
+- Peones = 1
+- Caballos = 3
+- Alfiles = 3
+- Torres = 5
+- Reina = 9
+
+📌 Objetivo:
+Maximizar material y ventaja.
+
+---
+
+## 🔁 Diferencia entre ambas IA
+
+| Modo | Tipo de IA | Comportamiento |
+|------|-----------|----------------|
+| Fácil | Random / Rule-Based | Juega sin estrategia |
+| Difícil | Minimax | Analiza y planifica |
+
+---
+
+## 🎯 Conclusión
+
+- Fácil → IA básica sin inteligencia real  
+- Difícil → IA clásica de búsqueda en árboles (Minimax)  
+""")
