@@ -38,6 +38,9 @@ if "results" not in st.session_state:
 if "visited" not in st.session_state:
     st.session_state.visited = set()
 
+if "episodes_selected" not in st.session_state:
+    st.session_state.episodes_selected = 5000
+
 # =========================================================
 # MAPAS
 # =========================================================
@@ -166,7 +169,6 @@ def step(agent, action, goal, walls, traps, algo_mode):
     new_dist = abs(new[0] - goal[0]) + abs(new[1] - goal[1])
 
     reward = -1
-
     if new_dist > old_dist:
         reward -= 2
     if new_dist < old_dist:
@@ -210,7 +212,7 @@ def update(Q, s, a, r, ns, na, algo):
         Q[s][a] += alpha * (r + gamma * np.max(Q[ns]) - Q[s][a])
 
 # =========================================================
-# TRAIN
+# TRAIN (NO GUARDA NADA)
 # =========================================================
 def train(algo, difficulty, episodes, progress, current_step, total_steps):
 
@@ -221,22 +223,26 @@ def train(algo, difficulty, episodes, progress, current_step, total_steps):
 
         start, goal, walls, traps = generate_map(difficulty)
         agent = start
-
         st.session_state.visited.clear()
 
         vision = get_vision(agent, walls, traps, goal)
-        gdir = (np.sign(goal[0] - agent[0]), np.sign(goal[1] - agent[1]))
+
+        gdir = (
+            np.sign(goal[0] - agent[0]),
+            np.sign(goal[1] - agent[1])
+        )
 
         s = state(agent, vision, gdir)
         epsilon = max(0.01, 0.25 * (1 - ep / episodes))
-
         act = choose(Q, s, epsilon)
 
         total_reward = 0
 
         for _ in range(100):
 
-            new_agent, reward, done = step(agent, act, goal, walls, traps, algo)
+            new_agent, reward, done = step(
+                agent, act, goal, walls, traps, algo
+            )
 
             if new_agent in st.session_state.visited:
                 reward -= 8
@@ -244,7 +250,10 @@ def train(algo, difficulty, episodes, progress, current_step, total_steps):
             st.session_state.visited.add(new_agent)
 
             vision2 = get_vision(new_agent, walls, traps, goal)
-            gdir2 = (np.sign(goal[0] - new_agent[0]), np.sign(goal[1] - new_agent[1]))
+            gdir2 = (
+                np.sign(goal[0] - new_agent[0]),
+                np.sign(goal[1] - new_agent[1])
+            )
 
             ns = state(new_agent, vision2, gdir2)
             na = choose(Q, ns, epsilon)
@@ -262,8 +271,7 @@ def train(algo, difficulty, episodes, progress, current_step, total_steps):
 
         rewards.append(total_reward)
 
-        global_progress = (current_step + ep + 1) / total_steps
-        progress.progress(global_progress)
+        progress.progress((current_step + ep + 1) / total_steps)
 
     return np.mean(rewards)
 
@@ -277,7 +285,7 @@ def draw(agent, goal, walls, traps):
     for x in range(GRID):
         for y in range(GRID):
             d.rectangle(
-                [x * CELL, y * CELL, x * CELL + CELL, y * CELL + CELL],
+                [x*CELL, y*CELL, x*CELL+CELL, y*CELL+CELL],
                 outline=(80,80,80)
             )
 
@@ -298,7 +306,7 @@ def draw(agent, goal, walls, traps):
 modo = st.selectbox("Modo", ["Entrenar", "Comparación visual", "Explicación"])
 
 # =========================================================
-# ENTRENAMIENTO
+# ENTRENAR
 # =========================================================
 if modo == "Entrenar":
 
@@ -313,8 +321,9 @@ if modo == "Entrenar":
         results = {}
 
         difficulties = ["Fácil", "Media", "Difícil"]
+        algos = ["SARSA", "Q-Learning"]
 
-        total_steps = len(difficulties) * 2 * episodes
+        total_steps = len(difficulties) * len(algos) * episodes
         current_step = 0
 
         for difficulty in difficulties:
@@ -327,25 +336,12 @@ if modo == "Entrenar":
 
             results[difficulty] = {"SARSA": sarsa_result, "Q": q_result}
 
-        progress.progress(1.0)
-
         st.session_state.results = results
-
-        # ==========================
-        # 💾 SOLO SIMULACIÓN / RESULTADO FINAL
-        # ==========================
-        if user:
-            supabase.table("gridworld_stats").insert({
-                "user_id": user.id,
-                "display_name": user.user_metadata.get("display_name"),
-                "difficulty": "Multi (SARSA + Q)",
-                "episodes": int(episodes)
-            }).execute()
-
+        progress.progress(1.0)
         st.success("✅ Entrenamiento completo")
 
 # =========================================================
-# COMPARACIÓN VISUAL
+# SIMULACIÓN + GUARDADO (ÚNICO LUGAR)
 # =========================================================
 if modo == "Comparación visual":
 
@@ -360,7 +356,6 @@ if modo == "Comparación visual":
         a2 = start2
 
         col1, col2 = st.columns(2)
-
         p1 = col1.empty()
         p2 = col2.empty()
 
@@ -373,15 +368,17 @@ if modo == "Comparación visual":
 
             if not done1:
                 v1 = get_vision(a1, walls1, traps1, goal1)
-                gdir1 = (np.sign(goal1[0] - a1[0]), np.sign(goal1[1] - a1[1]))
+                gdir1 = (np.sign(goal1[0]-a1[0]), np.sign(goal1[1]-a1[1]))
                 s1 = state(a1, v1, gdir1)
-                a1, _, done1 = step(a1, choose(Q1, s1, 0), goal1, walls1, traps1, "SARSA")
+                act1 = choose(Q1, s1, 0)
+                a1, _, done1 = step(a1, act1, goal1, walls1, traps1, "SARSA")
 
             if not done2:
                 v2 = get_vision(a2, walls2, traps2, goal2)
-                gdir2 = (np.sign(goal2[0] - a2[0]), np.sign(goal2[1] - a2[1]))
+                gdir2 = (np.sign(goal2[0]-a2[0]), np.sign(goal2[1]-a2[1]))
                 s2 = state(a2, v2, gdir2)
-                a2, _, done2 = step(a2, choose(Q2, s2, 0), goal2, walls2, traps2, "Q-Learning")
+                act2 = choose(Q2, s2, 0)
+                a2, _, done2 = step(a2, act2, goal2, walls2, traps2, "Q-Learning")
 
             p1.image(draw(a1, goal1, walls1, traps1))
             p2.image(draw(a2, goal2, walls2, traps2))
@@ -391,15 +388,23 @@ if modo == "Comparación visual":
             if done1 and done2:
                 break
 
+        # =========================
+        # 💾 GUARDADO SOLO AQUÍ
+        # =========================
+        if user:
+            supabase.table("gridworld_stats").insert({
+                "user_id": user.id,
+                "display_name": user.user_metadata.get("display_name"),
+                "difficulty": difficulty,
+                "episodes": st.session_state.episodes_selected
+            }).execute()
+
 # =========================================================
 # EXPLICACIÓN
 # =========================================================
 if modo == "Explicación":
     st.markdown("""
-## 🤖 GridWorld IA
-
-- SARSA vs Q-Learning
-- Estados con visión local
-- Reward shaping
-- Penalización de loops
+## 🤖 SARSA vs Q-Learning
+- SARSA: conservador
+- Q-Learning: agresivo
 """)
