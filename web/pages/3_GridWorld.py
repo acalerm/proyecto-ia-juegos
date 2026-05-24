@@ -148,7 +148,7 @@ def get_vision(agent, walls, traps, goal):
 # =========================================================
 # STEP
 # =========================================================
-def step(agent, action, goal, walls, traps):
+def step(agent, action, goal, walls, traps, algo_mode):
 
     x, y = agent
 
@@ -172,11 +172,17 @@ def step(agent, action, goal, walls, traps):
 
     # pared
     if new in walls:
-        return agent, -15, False
+        return agent, -10, False
 
     # trampa
     if new in traps:
-        return new, -100, False
+
+        # SARSA = conservador
+        if algo_mode == "SARSA":
+            return new, -45, False
+
+        # Q-Learning = agresivo
+        return new, -15, False
 
     # meta
     if new == goal:
@@ -190,9 +196,9 @@ def step(agent, action, goal, walls, traps):
 
     reward = -1
 
-    # alejarse de la meta
+    # alejarse
     if new_dist > old_dist:
-        reward -= 4
+        reward -= 2
 
     # acercarse
     if new_dist < old_dist:
@@ -303,14 +309,15 @@ def train(
                 act,
                 goal,
                 walls,
-                traps
+                traps,
+                algo
             )
 
             # =============================================
             # PENALIZAR LOOPS
             # =============================================
             if new_agent in st.session_state.visited:
-                reward -= 25
+                reward -= 8
 
             st.session_state.visited.add(new_agent)
 
@@ -594,7 +601,8 @@ if modo == "Comparación visual":
                     act1,
                     goal1,
                     walls1,
-                    traps1
+                    traps1,
+                    "SARSA"
                 )
 
             # =========================================
@@ -623,7 +631,8 @@ if modo == "Comparación visual":
                     act2,
                     goal2,
                     walls2,
-                    traps2
+                    traps2,
+                    "Q-Learning"
                 )
 
             p1.image(draw(a1, goal1, walls1, traps1))
@@ -652,10 +661,11 @@ if modo == "Explicación":
 - Más agresivo
 - Busca rutas óptimas aunque tengan riesgo
 
-## 🔥 Mejoras implementadas
+## 🔥 Diferencias implementadas
+- SARSA penaliza más las trampas
+- Q-Learning acepta más riesgo
+- Penalización anti-loops
 - Reward shaping
-- Penalización de loops
-- Estado con posición real
-- Barra de progreso global
-- IA más estable
+- Estado avanzado
+- Barra global de entrenamiento
 """)
