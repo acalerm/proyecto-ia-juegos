@@ -14,14 +14,6 @@ st.title("🤖 GridWorld IA")
 user = get_user()
 
 # =========================================================
-# FONT
-# =========================================================
-try:
-    FONT = ImageFont.truetype("arial.ttf", 24)
-except:
-    FONT = ImageFont.load_default()
-
-# =========================================================
 # CONSTANTES
 # =========================================================
 GRID = 8
@@ -40,85 +32,70 @@ if "results" not in st.session_state:
     st.session_state.results = {}
 
 # =========================================================
-# MAPAS
+# MAPAS (NUEVO SISTEMA GRID)
 # =========================================================
 def generate_map(difficulty):
 
-    agent = (0,0)
-    goal = (7,7)
-
-    # =====================================================
-    # 🟢 FÁCIL
-    # =====================================================
     if difficulty == "Fácil":
 
-        walls = [
-            (3,1),(3,2),(3,3),
-            (5,4),(5,5)
+        grid = [
+            ["S", " ", " ", " ", " ", " ", " ", " "],
+            [" ", " ", " ", "█", "█", "█", " ", " "],
+            [" ", " ", " ", " ", " ", "█", " ", " "],
+            [" ", " ", " ", " ", " ", "█", " ", " "],
+            [" ", "█", "█", "█", " ", " ", " ", " "],
+            [" ", " ", " ", "█", " ", " ", " ", " "],
+            [" ", " ", " ", "█", " ", "█", "█", "█"],
+            [" ", " ", " ", " ", " ", " ", " ", "G"]
         ]
 
-        # pequeño atajo central
-        traps = [
-            (4,3)
-        ]
-
-    # =====================================================
-    # 🟡 MEDIA
-    # =====================================================
     elif difficulty == "Media":
 
-        walls = [
-
-            # muro vertical izquierdo
-            (2,1),(2,2),(2,3),(2,4),
-
-            # muro central
-            (4,2),(4,3),(4,4),(4,5),
-
-            # muro derecho
-            (6,1),(6,2),(6,3),
-
-            # cierre parcial inferior
-            (1,6),(2,6),(3,6),(5,6)
+        grid = [
+            ["S", " ", " ", "█", " ", " ", " ", " "],
+            [" ", "█", " ", "█", " ", "█", "█", " "],
+            [" ", "█", " ", " ", " ", "█", " ", " "],
+            [" ", "█", "█", "█", " ", "█", "T", " "],
+            [" ", " ", " ", "█", " ", "█", "█", "█"],
+            ["█", "█", " ", " ", " ", " ", " ", " "],
+            [" ", " ", " ", "█", "█", "█", "█", " "],
+            [" ", "█", " ", " ", " ", " ", " ", "G"]
         ]
 
-        # atajo peligroso por el centro
-        traps = [
-            (3,3),
-            (3,4),
-            (5,4)
-        ]
-
-    # =====================================================
-    # 🔴 DIFÍCIL
-    # =====================================================
     else:
 
-        walls = [
-
-            # columna izquierda
-            (1,1),(1,2),(1,3),(1,4),(1,5),
-
-            # muro superior
-            (2,1),(3,1),(4,1),(5,1),
-
-            # muro central
-            (3,3),(3,4),(3,5),
-
-            # muro derecho
-            (5,3),(5,4),(5,5),
-
-            # cierre inferior parcial
-            (2,6),(3,6),(5,6),(6,6)
+        grid = [
+            ["S", " ", "█", " ", " ", " ", "█", " "],
+            [" ", " ", "█", " ", "█", " ", "█", " "],
+            ["█", " ", "█", " ", "█", " ", " ", " "],
+            ["█", " ", " ", " ", "█", "█", "█", "█"],
+            ["█", "█", "█", "T", " ", "T", " ", " "],
+            [" ", " ", "█", "█", " ", "█", "█", " "],
+            [" ", " ", " ", " ", " ", "█", " ", " "],
+            ["█", "█", "█", "█", "█", "█", " ", "G"]
         ]
 
-        # PASILLO peligroso central
-        traps = [
-            (2,3),
-            (2,4),
-            (4,4),
-            (4,5)
-        ]
+    agent = None
+    goal = None
+    walls = []
+    traps = []
+
+    for y in range(GRID):
+        for x in range(GRID):
+
+            cell = grid[y][x]
+
+            if cell == "S":
+                agent = (x, y)
+
+            elif cell == "G":
+                goal = (x, y)
+
+            elif cell == "█":
+                walls.append((x, y))
+
+            elif cell == "T":
+                traps.append((x, y))
 
     return agent, goal, walls, traps
 
@@ -158,58 +135,40 @@ def get_vision(agent, walls, traps, goal):
 # =========================================================
 def step(agent, action, goal, walls, traps):
 
-    x,y = agent
+    x, y = agent
 
     if action == 0:
         y -= 1
-
     elif action == 1:
         x += 1
-
     elif action == 2:
         y += 1
-
     elif action == 3:
         x -= 1
 
-    new = (x,y)
+    new = (x, y)
 
-    # bordes
     if x < 0 or x >= GRID or y < 0 or y >= GRID:
         return agent, -10, False
 
-    # paredes
     if new in walls:
         return agent, -15, False
 
-    # trampas
     if new in traps:
         return new, -20, False
 
-    # meta
     if new == goal:
         return new, 100, True
 
-    # recompensa distancia
-    d1 = abs(agent[0]-goal[0]) + abs(agent[1]-goal[1])
-    d2 = abs(new[0]-goal[0]) + abs(new[1]-goal[1])
-
-    reward = -1
-
-    if d2 < d1:
-        reward += 3
-    else:
-        reward -= 2
-
-    return new, reward, False
+    return new, -1, False
 
 # =========================================================
 # RL
 # =========================================================
-def state(v,gdir):
+def state(v, gdir):
     return v + gdir
 
-def choose(Q,s):
+def choose(Q, s):
 
     if s not in Q:
         Q[s] = [0,0,0,0]
@@ -219,73 +178,55 @@ def choose(Q,s):
 
     return int(np.argmax(Q[s]))
 
-def update(Q,s,a,r,ns,na,algo):
+def update(Q, s, a, r, ns, na, algo):
 
     alpha = 0.1
     gamma = 0.9
 
     if s not in Q:
         Q[s] = [0,0,0,0]
-
     if ns not in Q:
         Q[ns] = [0,0,0,0]
 
     if algo == "SARSA":
-
-        Q[s][a] += alpha * (
-            r + gamma * Q[ns][na] - Q[s][a]
-        )
-
+        Q[s][a] += alpha * (r + gamma * Q[ns][na] - Q[s][a])
     else:
-
-        Q[s][a] += alpha * (
-            r + gamma * np.max(Q[ns]) - Q[s][a]
-        )
+        Q[s][a] += alpha * (r + gamma * np.max(Q[ns]) - Q[s][a])
 
 # =========================================================
 # TRAIN
 # =========================================================
-def train(algo,difficulty,episodes):
+def train(algo, difficulty, episodes):
 
-    Q = (
-        st.session_state.Q_sarsa
-        if algo == "SARSA"
-        else st.session_state.Q_ql
-    )
+    Q = st.session_state.Q_sarsa if algo == "SARSA" else st.session_state.Q_ql
 
     for _ in range(episodes):
 
-        a,g,w,t = generate_map(difficulty)
+        a, g, w, t = generate_map(difficulty)
 
-        v = get_vision(a,w,t,g)
+        v = get_vision(a, w, t, g)
 
-        gdir = (
-            np.sign(g[0]-a[0]),
-            np.sign(g[1]-a[1])
-        )
+        gdir = (np.sign(g[0]-a[0]), np.sign(g[1]-a[1]))
 
-        s = state(v,gdir)
+        s = state(v, gdir)
 
-        act = choose(Q,s)
+        act = choose(Q, s)
 
         done = False
 
         for _ in range(120):
 
-            na,r,done = step(a,act,g,w,t)
+            na, r, done = step(a, act, g, w, t)
 
-            v2 = get_vision(na,w,t,g)
+            v2 = get_vision(na, w, t, g)
 
-            gdir2 = (
-                np.sign(g[0]-na[0]),
-                np.sign(g[1]-na[1])
-            )
+            gdir2 = (np.sign(g[0]-na[0]), np.sign(g[1]-na[1]))
 
-            ns = state(v2,gdir2)
+            ns = state(v2, gdir2)
 
-            nxt = choose(Q,ns)
+            nxt = choose(Q, ns)
 
-            update(Q,s,act,r,ns,nxt,algo)
+            update(Q, s, act, r, ns, nxt, algo)
 
             a = na
             s = ns
@@ -297,149 +238,46 @@ def train(algo,difficulty,episodes):
 # =========================================================
 # DRAW
 # =========================================================
-def draw(a,g,w,t):
+def draw(a, g, w, t):
 
-    img = Image.new(
-        "RGB",
-        (GRID*CELL, GRID*CELL),
-        (25,25,25)
-    )
-
+    img = Image.new("RGB", (GRID*CELL, GRID*CELL), (25,25,25))
     d = ImageDraw.Draw(img)
 
     for x in range(GRID):
         for y in range(GRID):
+            d.rectangle([x*CELL, y*CELL, x*CELL+CELL, y*CELL+CELL], outline=(80,80,80))
 
-            d.rectangle(
-                [
-                    x*CELL,
-                    y*CELL,
-                    x*CELL+CELL,
-                    y*CELL+CELL
-                ],
-                outline=(80,80,80)
-            )
-
-    # paredes
     for ob in w:
+        d.rectangle([ob[0]*CELL, ob[1]*CELL, ob[0]*CELL+CELL, ob[1]*CELL+CELL], fill=(200,50,50))
 
-        d.rectangle(
-            [
-                ob[0]*CELL,
-                ob[1]*CELL,
-                ob[0]*CELL+CELL,
-                ob[1]*CELL+CELL
-            ],
-            fill=(200,50,50)
-        )
-
-    # trampas
     for tr in t:
+        d.rectangle([tr[0]*CELL+15, tr[1]*CELL+15, tr[0]*CELL+CELL-15, tr[1]*CELL+CELL-15], fill=(255,140,0))
 
-        d.rectangle(
-            [
-                tr[0]*CELL+15,
-                tr[1]*CELL+15,
-                tr[0]*CELL+CELL-15,
-                tr[1]*CELL+CELL-15
-            ],
-            fill=(255,140,0)
-        )
-
-    # meta
-    d.ellipse(
-        [
-            g[0]*CELL+20,
-            g[1]*CELL+20,
-            g[0]*CELL+CELL-20,
-            g[1]*CELL+CELL-20
-        ],
-        fill=(0,255,0)
-    )
-
-    # agente
-    d.ellipse(
-        [
-            a[0]*CELL+20,
-            a[1]*CELL+20,
-            a[0]*CELL+CELL-20,
-            a[1]*CELL+CELL-20
-        ],
-        fill=(50,150,255)
-    )
+    d.ellipse([g[0]*CELL+20, g[1]*CELL+20, g[0]*CELL+CELL-20, g[1]*CELL+CELL-20], fill=(0,255,0))
+    d.ellipse([a[0]*CELL+20, a[1]*CELL+20, a[0]*CELL+CELL-20, a[1]*CELL+CELL-20], fill=(50,150,255))
 
     return img
 
 # =========================================================
 # UI
 # =========================================================
-modo = st.selectbox(
-    "Modo",
-    [
-        "Entrenar",
-        "Comparación visual",
-        "Explicación"
-    ]
-)
+modo = st.selectbox("Modo", ["Entrenar", "Comparación visual", "Explicación"])
 
-# =========================================================
-# ENTRENAR
-# =========================================================
 if modo == "Entrenar":
 
-    episodes = st.slider(
-        "Episodios",
-        1000,
-        20000,
-        5000,
-        step=1000
-    )
+    episodes = st.slider("Episodios", 1000, 20000, 5000, step=1000)
 
     if st.button("Entrenar IA"):
 
-        progress = st.progress(0)
+        for d in ["Fácil", "Media", "Difícil"]:
+            train("SARSA", d, episodes)
+            train("Q-Learning", d, episodes)
 
-        for i,d in enumerate(["Fácil","Media","Difícil"]):
+        st.success("Entrenamiento completado")
 
-            train("SARSA",d,episodes)
-            train("Q-Learning",d,episodes)
-
-            progress.progress((i+1)/3)
-
-        # guardar BBDD
-        if user:
-
-            for d in ["Fácil","Media","Difícil"]:
-
-                supabase.table("gridworld_stats").insert({
-                    "user_id": user.id,
-                    "display_name": user.user_metadata.get("display_name"),
-                    "algorithm": "SARSA",
-                    "difficulty": d,
-                    "episodes": episodes,
-                    "avg_reward": 0
-                }).execute()
-
-                supabase.table("gridworld_stats").insert({
-                    "user_id": user.id,
-                    "display_name": user.user_metadata.get("display_name"),
-                    "algorithm": "Q-Learning",
-                    "difficulty": d,
-                    "episodes": episodes,
-                    "avg_reward": 0
-                }).execute()
-
-        st.success("✅ Entrenamiento completado")
-
-# =========================================================
-# COMPARACIÓN VISUAL
-# =========================================================
 elif modo == "Comparación visual":
 
-    difficulty = st.selectbox(
-        "Dificultad",
-        ["Fácil","Media","Difícil"]
-    )
+    difficulty = st.selectbox("Dificultad", ["Fácil", "Media", "Difícil"])
 
     if st.button("Simular batalla"):
 
@@ -449,13 +287,7 @@ elif modo == "Comparación visual":
         Q1 = st.session_state.Q_sarsa
         Q2 = st.session_state.Q_ql
 
-        col1,col2 = st.columns(2)
-
-        with col1:
-            st.markdown("## 🟦 SARSA")
-
-        with col2:
-            st.markdown("## 🟥 Q-Learning")
+        col1, col2 = st.columns(2)
 
         p1 = col1.empty()
         p2 = col2.empty()
@@ -466,89 +298,30 @@ elif modo == "Comparación visual":
         for _ in range(120):
 
             if not done1:
-
                 v = get_vision(a1,w1,t1,g1)
-
-                gdir = (
-                    np.sign(g1[0]-a1[0]),
-                    np.sign(g1[1]-a1[1])
-                )
-
+                gdir = (np.sign(g1[0]-a1[0]), np.sign(g1[1]-a1[1]))
                 s = state(v,gdir)
-
                 act = choose(Q1,s)
-
-                a1,_,done1 = step(
-                    a1,
-                    act,
-                    g1,
-                    w1,
-                    t1
-                )
+                a1,_,done1 = step(a1,act,g1,w1,t1)
 
             if not done2:
-
                 v = get_vision(a2,w2,t2,g2)
-
-                gdir = (
-                    np.sign(g2[0]-a2[0]),
-                    np.sign(g2[1]-a2[1])
-                )
-
+                gdir = (np.sign(g2[0]-a2[0]), np.sign(g2[1]-a2[1]))
                 s = state(v,gdir)
-
                 act = choose(Q2,s)
-
-                a2,_,done2 = step(
-                    a2,
-                    act,
-                    g2,
-                    w2,
-                    t2
-                )
+                a2,_,done2 = step(a2,act,g2,w2,t2)
 
             p1.image(draw(a1,g1,w1,t1))
             p2.image(draw(a2,g2,w2,t2))
 
             time.sleep(0.3)
 
-# =========================================================
-# EXPLICACIÓN
-# =========================================================
-elif modo == "Explicación":
+else:
 
-    st.markdown("## 📘 ¿Qué ocurre en este experimento?")
+    st.markdown("""
+    ## 📘 Explicación
 
-    st.write("""
-En GridWorld se comparan dos algoritmos de aprendizaje por refuerzo:
-
-- 🟦 SARSA
-- 🟥 Q-Learning
-
-Ambos intentan llegar a la meta verde aprendiendo mediante recompensas y castigos.
-""")
-
-    st.markdown("### 🟦 SARSA")
-
-    st.write("""
-SARSA aprende teniendo en cuenta la acción que realmente realiza.
-
-Por ello suele ser más conservador y evita caminos peligrosos aunque sean más rápidos.
-""")
-
-    st.markdown("### 🟥 Q-Learning")
-
-    st.write("""
-Q-Learning aprende buscando siempre la mejor recompensa posible.
-
-Esto provoca que normalmente tome atajos más agresivos y arriesgados.
-""")
-
-    st.markdown("### 🧱 Laberintos")
-
-    st.write("""
-Los mapas están diseñados para mostrar las diferencias entre ambos algoritmos:
-
-- 🟦 SARSA suele rodear zonas peligrosas
-- 🟥 Q-Learning intenta optimizar el camino aunque exista riesgo
-""")
+    - SARSA: más conservador
+    - Q-Learning: más agresivo
+    - Los mapas están diseñados para forzar decisiones distintas
+    """)
