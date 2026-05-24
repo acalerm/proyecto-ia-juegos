@@ -24,9 +24,9 @@ GRID = 8
 CELL = 70
 
 # =========================================================
-# BBDD (SOLO LO NECESARIO)
+# BBDD (SOLO AÑADIDO)
 # =========================================================
-def save_game(user, difficulty, episodes):
+def save_game_gridworld(user, difficulty, episodes):
     if not user:
         return
 
@@ -124,18 +124,6 @@ grid_hard = [
 ]
 
 # =========================================================
-# UI MODE (IMPORTANTE: ANTES DE USAR "modo")
-# =========================================================
-modo = st.selectbox(
-    "Modo",
-    [
-        "Entrenar",
-        "Comparación visual",
-        "Explicación"
-    ]
-)
-
-# =========================================================
 # MAP SELECTOR
 # =========================================================
 def generate_map(difficulty):
@@ -149,23 +137,181 @@ def generate_map(difficulty):
     return parse_grid(grid_hard)
 
 # =========================================================
-# TODO EL RESTO DEL JUEGO (SIN CAMBIOS)
+# VISIÓN
 # =========================================================
-# ⚠️ Aquí va TODO tu código original de IA, train, step, draw...
-# (lo has mantenido igual como pediste)
+def get_vision(agent, walls, traps, goal):
+
+    ax, ay = agent
+    vision = []
+
+    for dy in [-1,0,1]:
+        for dx in [-1,0,1]:
+
+            x = ax + dx
+            y = ay + dy
+
+            if x < 0 or x >= GRID or y < 0 or y >= GRID:
+                vision.append(-1)
+
+            elif (x, y) == goal:
+                vision.append(3)
+
+            elif (x, y) in walls:
+                vision.append(1)
+
+            elif (x, y) in traps:
+                vision.append(5)
+
+            else:
+                vision.append(0)
+
+    return tuple(vision)
+
+# =========================================================
+# STEP
+# =========================================================
+def step(agent, action, goal, walls, traps, algo_mode):
+
+    x, y = agent
+
+    if action == 0:
+        y -= 1
+    elif action == 1:
+        x += 1
+    elif action == 2:
+        y += 1
+    elif action == 3:
+        x -= 1
+
+    if x < 0 or x >= GRID or y < 0 or y >= GRID:
+        return agent, -10, False
+
+    new = (x, y)
+
+    if new in walls:
+        return agent, -10, False
+
+    if new in traps:
+        if algo_mode == "SARSA":
+            return new, -45, False
+        return new, -3, False
+
+    if new == goal:
+        return new, 200, True
+
+    old_dist = abs(agent[0] - goal[0]) + abs(agent[1] - goal[1])
+    new_dist = abs(new[0] - goal[0]) + abs(new[1] - goal[1])
+
+    reward = -1
+    if new_dist > old_dist:
+        reward -= 2
+    elif new_dist < old_dist:
+        reward += 2
+
+    return new, reward, False
+
+# =========================================================
+# STATE
+# =========================================================
+def state(agent, vision, gdir):
+    return tuple(agent) + tuple(vision) + tuple(gdir)
+
+# =========================================================
+# CHOOSE
+# =========================================================
+def choose(Q, s, epsilon=0.1):
+
+    if s not in Q:
+        Q[s] = [0,0,0,0]
+
+    if random.random() < epsilon:
+        return random.randint(0,3)
+
+    return int(np.argmax(Q[s]))
+
+# =========================================================
+# UPDATE
+# =========================================================
+def update(Q, s, a, r, ns, na, algo):
+
+    alpha = 0.1
+    gamma = 0.9
+
+    if s not in Q:
+        Q[s] = [0,0,0,0]
+    if ns not in Q:
+        Q[ns] = [0,0,0,0]
+
+    if algo == "SARSA":
+        Q[s][a] += alpha * (r + gamma * Q[ns][na] - Q[s][a])
+    else:
+        Q[s][a] += alpha * (r + gamma * np.max(Q[ns]) - Q[s][a])
+
+# =========================================================
+# TRAIN
+# =========================================================
+def train(algo, difficulty, episodes, progress, current_step, total_steps):
+
+    Q = st.session_state.Q_sarsa if algo == "SARSA" else st.session_state.Q_ql
+    rewards = []
+
+    for ep in range(episodes):
+
+        start, goal, walls, traps = generate_map(difficulty)
+        agent = start
+        st.session_state.visited.clear()
+
+        vision = get_vision(agent, walls, traps, goal)
+        gdir = (np.sign(goal[0]-agent[0]), np.sign(goal[1]-agent[1]))
+
+        s = state(agent, vision, gdir)
+        act = choose(Q, s, 0.25)
+
+        total_reward = 0
+
+        for _ in range(100):
+
+            new_agent, reward, done = step(agent, act, goal, walls, traps, algo)
+
+            if new_agent in st.session_state.visited:
+                reward -= 8
+
+            st.session_state.visited.add(new_agent)
+
+            vision2 = get_vision(new_agent, walls, traps, goal)
+            gdir2 = (np.sign(goal[0]-new_agent[0]), np.sign(goal[1]-new_agent[1]))
+
+            ns = state(new_agent, vision2, gdir2)
+            na = choose(Q, ns, 0.25)
+
+            update(Q, s, act, reward, ns, na, algo)
+
+            agent = new_agent
+            s = ns
+            act = na
+
+            total_reward += reward
+
+            if done:
+                break
+
+        rewards.append(total_reward)
+
+        progress.progress((current_step + ep + 1) / total_steps)
+
+    return np.mean(rewards)
+
+# =========================================================
+# UI
+# =========================================================
+modo = st.selectbox("Modo", ["Entrenar", "Comparación visual", "Explicación"])
 
 # =========================================================
 # ENTRENAMIENTO + BBDD
 # =========================================================
 if modo == "Entrenar":
 
-    episodes = st.slider(
-        "Episodios",
-        1000,
-        20000,
-        5000,
-        step=1000
-    )
+    episodes = st.slider("Episodios", 1000, 20000, 5000, step=1000)
 
     if st.button("Entrenar IA"):
 
@@ -174,8 +320,6 @@ if modo == "Entrenar":
 
         progress = st.progress(0)
 
-        results = {}
-
         difficulties = ["Fácil", "Media", "Difícil"]
 
         total_steps = len(difficulties) * 2 * episodes
@@ -183,41 +327,15 @@ if modo == "Entrenar":
 
         for difficulty in difficulties:
 
-            sarsa_result = train(
-                "SARSA",
-                difficulty,
-                episodes,
-                progress,
-                current_step,
-                total_steps
-            )
-
+            train("SARSA", difficulty, episodes, progress, current_step, total_steps)
             current_step += episodes
 
-            q_result = train(
-                "Q-Learning",
-                difficulty,
-                episodes,
-                progress,
-                current_step,
-                total_steps
-            )
-
+            train("Q-Learning", difficulty, episodes, progress, current_step, total_steps)
             current_step += episodes
-
-            results[difficulty] = {
-                "SARSA": sarsa_result,
-                "Q": q_result
-            }
 
         progress.progress(1.0)
-        st.session_state.results = results
 
-        # ✅ GUARDADO EN SUPABASE (UNA SOLA VEZ)
-        save_game(
-            user=user,
-            difficulty="Multi (SARSA + Q)",
-            episodes=episodes
-        )
+        # ✅ SOLO BBDD
+        save_game_gridworld(user, "Multi (SARSA + Q)", episodes)
 
         st.success("✅ Entrenamiento completo")
