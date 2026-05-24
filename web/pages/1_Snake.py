@@ -1,4 +1,4 @@
-import st
+import streamlit as st
 import random
 import numpy as np
 import time
@@ -16,10 +16,10 @@ from utils.session import get_user
 user = get_user()
 
 # =====================================================
-# 💾 SUPABASE SAVE (NUEVO)
+# 💾 SUPABASE SAVE (SOLO SIMULACIÓN)
 # =====================================================
 
-def save_game_snake(user, score, episodes):
+def save_snake_simulation(user, score):
     if not user:
         return
 
@@ -34,8 +34,7 @@ def save_game_snake(user, score, episodes):
     supabase.table("snake_stats").insert({
         "user_id": user.id,
         "display_name": display_name,
-        "score": int(score),
-        "episodes": int(episodes)
+        "score": int(score)
     }).execute()
 
 # =====================================================
@@ -226,7 +225,6 @@ if modo == "Entrenar IA":
             a = choose(s)
 
             score = 0
-            episode_score = 0   # 👈 NUEVO
 
             for _ in range(200):
 
@@ -243,17 +241,11 @@ if modo == "Entrenar IA":
 
                 if r == 20:
                     score += 1
-                    episode_score += 1   # 👈 NUEVO
 
                 if done:
                     break
 
             st.session_state.scores.append(score)
-
-            # =================================================
-            # 💾 GUARDADO EN BBDD (NUEVO)
-            # =================================================
-            save_game_snake(user, episode_score, episodes)
 
             if ep % 200 == 0:
                 status.text(f"Entrenando... {ep}/{episodes}")
@@ -264,22 +256,7 @@ if modo == "Entrenar IA":
         status.success("✅ Entrenamiento completado")
 
 # =====================================================
-# GRAPH
-# =====================================================
-
-if modo == "Entrenar IA" and st.session_state.scores:
-
-    scores = st.session_state.scores
-    media = [np.mean(scores[max(0, i-50):i+1]) for i in range(len(scores))]
-
-    fig, ax = plt.subplots()
-    ax.plot(scores, alpha=0.3)
-    ax.plot(media)
-
-    st.pyplot(fig)
-
-# =====================================================
-# SIMULATION
+# SIMULATION (GUARDADO AQUÍ)
 # =====================================================
 
 if modo == "Simulación IA":
@@ -325,6 +302,12 @@ if modo == "Simulación IA":
 
         st.success(f"💀 Score: {score}")
 
+        # =================================================
+        # 💾 GUARDA SOLO SIMULACIÓN
+        # =================================================
+        if user:
+            save_snake_simulation(user, score)
+
 # =====================================================
 # Q-TABLE
 # =====================================================
@@ -354,13 +337,12 @@ if modo == "Explicación":
 
 - Reinforcement Learning
 - Q-learning tabular
+- Estado discreto
 - Exploración epsilon-greedy
-- Estado discreto (dirección + peligro + comida)
 
 ## 💾 Base de datos
 
-Se guarda:
-- score por episodio
-- número de episodios
+Se guarda SOLO:
+- score de la simulación
 - usuario
 """)
