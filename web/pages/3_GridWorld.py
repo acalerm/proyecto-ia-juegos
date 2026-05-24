@@ -8,7 +8,7 @@ from utils.supabase_client import supabase
 from utils.session import get_user
 
 st.set_page_config(page_title="GridWorld IA PRO FIX", layout="centered")
-st.title("🤖 GridWorld IA PRO (STABLE FIX)")
+st.title("🤖 GridWorld IA PRO (FINAL FIX)")
 
 user = get_user()
 
@@ -35,7 +35,7 @@ if "visited" not in st.session_state:
     st.session_state.visited = set()
 
 # =========================================================
-# 🧱 MAPAS (NO TOCADOS)
+# 🧱 MAPAS (SIN CAMBIOS)
 # =========================================================
 
 def parse_grid(grid):
@@ -121,14 +121,14 @@ def get_vision(agent, walls, traps, goal):
             elif (x,y) in walls:
                 v.append(1)
             elif (x,y) in traps:
-                v.append(2)
+                v.append(5)   # 🔥 más fuerte para que SARSA lo evite
             else:
                 v.append(0)
 
     return tuple(v)
 
 # =========================================================
-# STEP (CORRECTO)
+# STEP
 # =========================================================
 def step(agent, action, goal, walls, traps):
 
@@ -148,7 +148,7 @@ def step(agent, action, goal, walls, traps):
         return agent, -10, False
 
     if new in traps:
-        return new, -20, False
+        return new, -50, False   # 🔥 castigo fuerte
 
     if new == goal:
         return new, 100, True
@@ -186,12 +186,14 @@ def update(Q, s, a, r, ns, na, algo):
         Q[s][a] += alpha * (r + gamma * np.max(Q[ns]) - Q[s][a])
 
 # =========================================================
-# TRAIN (FIXED)
+# TRAIN (CON PROGRESS BAR)
 # =========================================================
 def train(algo, difficulty, episodes):
 
     Q = st.session_state.Q_sarsa if algo == "SARSA" else st.session_state.Q_ql
     rewards = []
+
+    progress = st.progress(0)
 
     for ep in range(episodes):
 
@@ -207,14 +209,12 @@ def train(algo, difficulty, episodes):
         act = choose(Q, s, 0.3)
 
         total = 0
-
         epsilon = max(0.05, 0.3 * (1 - ep / episodes))
 
         for _ in range(80):
 
             new_agent, r, done = step(agent, act, goal, walls, traps)
 
-            # penalización por loops
             if s in st.session_state.visited:
                 r -= 5
             st.session_state.visited.add(s)
@@ -237,6 +237,8 @@ def train(algo, difficulty, episodes):
                 break
 
         rewards.append(total)
+
+        progress.progress((ep + 1) / episodes)
 
     return np.mean(rewards)
 
@@ -287,11 +289,10 @@ if modo == "Entrenar":
             results[d] = {"SARSA": s, "Q": q}
 
         st.session_state.results = results
-
         st.success("Entrenamiento completo")
 
 # =========================================================
-# COMPARACIÓN (FIX STOP META)
+# COMPARACIÓN
 # =========================================================
 if modo == "Comparación visual":
 
@@ -305,7 +306,11 @@ if modo == "Comparación visual":
         a1 = start1
         a2 = start2
 
-        col1,col2 = st.columns(2)
+        col1, col2 = st.columns(2)
+
+        col1.markdown("### 🟦 SARSA")
+        col2.markdown("### 🟧 Q-Learning")
+
         p1 = col1.empty()
         p2 = col2.empty()
 
@@ -331,6 +336,12 @@ if modo == "Comparación visual":
 
             time.sleep(0.3)
 
+            # 🔥 FIX: congelar en meta
+            if done1:
+                a1 = goal1
+            if done2:
+                a2 = goal2
+
             if done1 and done2:
                 break
 
@@ -341,8 +352,10 @@ if modo == "Explicación":
     st.markdown("""
 ## SARSA vs Q-Learning
 
-- SARSA: aprende lo que hace realmente
-- Q-Learning: aprende la mejor acción futura
+- SARSA: aprende política real (más conservador)
+- Q-Learning: aprende política óptima (más agresivo)
 
-✔ Ahora el entorno es estable y sin loops infinitos
+✔ ahora el entorno es estable
+✔ sin loops infinitos
+✔ con aprendizaje visible
 """)
