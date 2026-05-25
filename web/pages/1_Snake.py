@@ -233,7 +233,7 @@ if modo == "Entrenar IA":
         status.success("✅ Entrenamiento completado")
 
 # =====================================================
-# SIMULATION + SUPABASE FIX
+# SIMULATION + SUPABASE
 # =====================================================
 
 if modo == "Simulación IA":
@@ -287,9 +287,6 @@ if modo == "Simulación IA":
                 "episodes": st.session_state.last_episodes
             }).execute()
 
-# =====================================================
-# RESTO SIN CAMBIOS
-# =====================================================
 
 if modo == "Entrenar IA" and st.session_state.scores:
 
