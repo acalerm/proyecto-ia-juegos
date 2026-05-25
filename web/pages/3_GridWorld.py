@@ -212,7 +212,7 @@ def update(Q, s, a, r, ns, na, algo):
         Q[s][a] += alpha * (r + gamma * np.max(Q[ns]) - Q[s][a])
 
 # =========================================================
-# TRAIN (NO GUARDA NADA)
+# TRAIN                    
 # =========================================================
 def train(algo, difficulty, episodes, progress, current_step, total_steps):
 
