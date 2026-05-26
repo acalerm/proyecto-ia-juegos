@@ -90,8 +90,14 @@ with col5:
         st.session_state.ai_dir = 2
         st.session_state.result = None
 
+if not isinstance(st.session_state.player, (int, float)):
+    st.session_state.player = 80
 
+if not isinstance(st.session_state.ai, (int, float)):
+    st.session_state.ai = 80
+    
 st.session_state.player = max(0, min(150, st.session_state.player))
+st.session_state.ai = max(0, min(150, st.session_state.ai))
 
 # ---------------- SPEED ----------------
 speed = st.slider("Velocidad del juego", 0.01, 0.3, 0.08)
